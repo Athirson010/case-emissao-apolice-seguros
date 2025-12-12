@@ -37,7 +37,7 @@ services:
     networks:
       - order-network
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092" ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -88,7 +88,7 @@ services:
     networks:
       - order-network
     healthcheck:
-      test: ["CMD", "awslocal", "sns", "list-topics"]
+      test: [ "CMD", "awslocal", "sns", "list-topics" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -108,7 +108,7 @@ services:
     networks:
       - order-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 10s
       timeout: 5s
       retries: 5

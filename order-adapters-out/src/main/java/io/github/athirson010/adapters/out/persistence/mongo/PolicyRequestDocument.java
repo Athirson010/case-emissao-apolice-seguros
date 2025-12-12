@@ -23,9 +23,9 @@ import java.util.Map;
 @AllArgsConstructor
 @Document(collection = "policy_requests")
 @CompoundIndexes({
-    @CompoundIndex(name = "customer_created_idx", def = "{'customerId': 1, 'createdAt': -1}"),
-    @CompoundIndex(name = "status_created_idx", def = "{'status': 1, 'createdAt': -1}"),
-    @CompoundIndex(name = "product_created_idx", def = "{'productId': 1, 'createdAt': -1}")
+        @CompoundIndex(name = "customer_created_idx", def = "{'customerId': 1, 'createdAt': -1}"),
+        @CompoundIndex(name = "status_created_idx", def = "{'status': 1, 'createdAt': -1}"),
+        @CompoundIndex(name = "product_created_idx", def = "{'productId': 1, 'createdAt': -1}")
 })
 public class PolicyRequestDocument {
 
