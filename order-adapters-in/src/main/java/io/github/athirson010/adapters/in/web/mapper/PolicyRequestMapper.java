@@ -3,9 +3,9 @@ package io.github.athirson010.adapters.in.web.mapper;
 import io.github.athirson010.adapters.in.web.dto.CancelPolicyResponse;
 import io.github.athirson010.adapters.in.web.dto.CreatePolicyRequest;
 import io.github.athirson010.adapters.in.web.dto.CreatePolicyResponse;
-import io.github.athirson010.domain.model.Category;
+import io.github.athirson010.domain.enums.Category;
+import io.github.athirson010.domain.enums.PaymentMethod;
 import io.github.athirson010.domain.model.Money;
-import io.github.athirson010.domain.model.PaymentMethod;
 import io.github.athirson010.domain.model.PolicyRequest;
 
 import java.math.BigDecimal;

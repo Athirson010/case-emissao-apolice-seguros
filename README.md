@@ -23,14 +23,37 @@ O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapter
 
 ### Estrutura Modular
 
-O projeto está organizado em módulos Maven independentes:
+O projeto está organizado em módulos Maven independentes seguindo os princípios da arquitetura hexagonal:
 
 ```
-├── order-domain/           # Entidades de negócio, value objects, enums
-├── order-application/      # Casos de uso, portas (interfaces)
-├── order-adapters-in/      # Adaptadores de entrada (REST Controllers)
-├── order-adapters-out/     # Adaptadores de saída (MongoDB, AWS SNS, APIs externas)
-└── order-bootstrap/        # Configuração e inicialização Spring Boot
+├── order-domain/           # Núcleo da aplicação
+│   ├── Entidades de domínio (PolicyRequest)
+│   ├── Value Objects (Money, PolicyRequestId, HistoryEntry)
+│   ├── Enums (PolicyStatus, Category, PaymentMethod)
+│   ├── Regras de negócio e validações reutilizáveis
+│   └── Exceções de domínio
+│
+├── order-application/      # Camada de aplicação
+│   ├── Casos de uso (CreateOrderUseCase)
+│   ├── Portas de entrada (in) - interfaces para adaptadores de entrada
+│   ├── Portas de saída (out) - interfaces para adaptadores de saída
+│   └── Serviços de aplicação que orquestram o domínio
+│
+├── order-adapters-in/      # Adaptadores de entrada
+│   ├── Controllers REST
+│   ├── DTOs de request/response
+│   └── Mappers (conversão entre DTOs e entidades de domínio)
+│
+├── order-adapters-out/     # Adaptadores de saída
+│   ├── Implementação de persistência (MongoDB)
+│   ├── Integração com AWS SNS (mensageria)
+│   ├── Integração com APIs externas (fraude)
+│   └── Mappers de persistência (conversão entre domínio e documentos)
+│
+└── order-bootstrap/        # Inicialização
+    ├── Configuração Spring Boot
+    ├── Application properties
+    └── Testes de arquitetura (ArchUnit)
 ```
 
 ## 🎯 Funcionalidades

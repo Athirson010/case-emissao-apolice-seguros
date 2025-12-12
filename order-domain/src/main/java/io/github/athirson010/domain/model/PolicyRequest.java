@@ -1,5 +1,8 @@
 package io.github.athirson010.domain.model;
 
+import io.github.athirson010.domain.enums.Category;
+import io.github.athirson010.domain.enums.PaymentMethod;
+import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.exception.InvalidTransitionException;
 import lombok.AccessLevel;
 import lombok.Builder;

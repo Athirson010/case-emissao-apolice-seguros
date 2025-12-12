@@ -1,5 +1,6 @@
 package io.github.athirson010.domain.model;
 
+import io.github.athirson010.domain.enums.PolicyStatus;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;

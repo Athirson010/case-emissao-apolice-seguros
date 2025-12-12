@@ -1,6 +1,12 @@
 package io.github.athirson010.adapters.out.persistence.mongo;
 
-import io.github.athirson010.domain.model.*;
+import io.github.athirson010.domain.enums.Category;
+import io.github.athirson010.domain.enums.PaymentMethod;
+import io.github.athirson010.domain.enums.PolicyStatus;
+import io.github.athirson010.domain.model.HistoryEntry;
+import io.github.athirson010.domain.model.Money;
+import io.github.athirson010.domain.model.PolicyRequest;
+import io.github.athirson010.domain.model.PolicyRequestId;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;

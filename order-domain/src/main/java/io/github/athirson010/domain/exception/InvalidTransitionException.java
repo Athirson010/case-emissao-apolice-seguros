@@ -1,6 +1,6 @@
 package io.github.athirson010.domain.exception;
 
-import io.github.athirson010.domain.model.PolicyStatus;
+import io.github.athirson010.domain.enums.PolicyStatus;
 
 public class InvalidTransitionException extends DomainException {
 
