@@ -14,6 +14,8 @@ Sistema robusto e escalável para emissão, gerenciamento e consulta de apólice
 
 ## 🏗️ Arquitetura
 
+![Diagrama de Solução](docs/diagrama.png)
+
 O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapters)**, garantindo:
 
 - **Separação de responsabilidades** entre camadas de domínio, aplicação e infraestrutura
