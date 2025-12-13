@@ -23,18 +23,18 @@ public class OrderMongoAdapter implements OrderRepository {
 
     @Override
     public PolicyProposal save(PolicyProposal policyProposal) {
-        log.debug("Saving policy proposal with ID: {}", policyProposal.getId().asString());
+        log.debug("Salvando proposta de apólice com ID: {}", policyProposal.getId().asString());
 
         PolicyProposalEntity entity = mapper.toEntity(policyProposal);
         PolicyProposalEntity savedEntity = mongoRepository.save(entity);
 
-        log.info("Policy proposal saved successfully with ID: {}", savedEntity.getId());
+        log.info("Proposta de apólice salva com sucesso com ID: {}", savedEntity.getId());
         return mapper.toDomain(savedEntity);
     }
 
     @Override
     public Optional<PolicyProposal> findById(PolicyProposalId id) {
-        log.debug("Finding policy proposal by ID: {}", id.asString());
+        log.debug("Buscando proposta de apólice por ID: {}", id.asString());
 
         return mongoRepository.findById(id.asString())
                 .map(mapper::toDomain);
@@ -42,7 +42,7 @@ public class OrderMongoAdapter implements OrderRepository {
 
     @Override
     public Optional<PolicyProposal> findByCustomerId(UUID customerId) {
-        log.debug("Finding policy proposal by customer ID: {}", customerId);
+        log.debug("Buscando proposta de apólice por ID do cliente: {}", customerId);
 
         return mongoRepository.findByCustomerId(customerId.toString())
                 .stream()
@@ -52,16 +52,16 @@ public class OrderMongoAdapter implements OrderRepository {
 
     @Override
     public void deleteById(PolicyProposalId id) {
-        log.debug("Deleting policy proposal with ID: {}", id.asString());
+        log.debug("Deletando proposta de apólice com ID: {}", id.asString());
 
         mongoRepository.deleteById(id.asString());
 
-        log.info("Policy proposal deleted successfully with ID: {}", id.asString());
+        log.info("Proposta de apólice deletada com sucesso com ID: {}", id.asString());
     }
 
     @Override
     public boolean existsById(PolicyProposalId id) {
-        log.debug("Checking if policy proposal exists with ID: {}", id.asString());
+        log.debug("Verificando se proposta de apólice existe com ID: {}", id.asString());
 
         return mongoRepository.existsById(id.asString());
     }

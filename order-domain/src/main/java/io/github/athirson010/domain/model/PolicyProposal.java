@@ -112,8 +112,8 @@ public class PolicyProposal {
         }
 
         boolean isValid = switch (this.status) {
-            case RECEIVED -> targetStatus == PolicyStatus.VALIDATED || targetStatus == PolicyStatus.REJECTED;
-            case VALIDATED -> targetStatus == PolicyStatus.PENDING || targetStatus == PolicyStatus.REJECTED;
+            case RECEIVED -> targetStatus == PolicyStatus.VALIDATED || targetStatus == PolicyStatus.CANCELED;
+            case VALIDATED -> targetStatus == PolicyStatus.APPROVED || targetStatus == PolicyStatus.REJECTED;
             case PENDING -> targetStatus == PolicyStatus.APPROVED || targetStatus == PolicyStatus.REJECTED;
             default -> false;
         };

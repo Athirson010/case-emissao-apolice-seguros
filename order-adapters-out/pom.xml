@@ -52,6 +52,12 @@
             <artifactId>spring-cloud-aws-starter-sns</artifactId>
         </dependency>
 
+        <!-- Spring Kafka -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- JUnit Jupiter for testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

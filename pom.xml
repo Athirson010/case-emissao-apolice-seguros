@@ -28,6 +28,7 @@
         <spring-boot.version>3.2.1</spring-boot.version>
         <spring-cloud-aws.version>3.1.0</spring-cloud-aws.version>
         <aws-sdk.version>2.20.26</aws-sdk.version>
+        <spring-kafka.version>3.1.1</spring-kafka.version>
         <archunit.version>1.2.1</archunit.version>
         <junit.version>5.10.1</junit.version>
         <lombok.version>1.18.30</lombok.version>
@@ -51,6 +52,13 @@
                 <version>${spring-cloud-aws.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- Spring Kafka -->
+            <dependency>
+                <groupId>org.springframework.kafka</groupId>
+                <artifactId>spring-kafka</artifactId>
+                <version>${spring-kafka.version}</version>
             </dependency>
 
             <!-- AWS SDK BOM -->

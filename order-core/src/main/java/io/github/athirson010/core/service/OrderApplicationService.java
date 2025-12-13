@@ -1,6 +1,7 @@
 package io.github.athirson010.core.service;
 
 import io.github.athirson010.core.port.in.CreateOrderUseCase;
+import io.github.athirson010.core.port.out.FraudQueuePort;
 import io.github.athirson010.core.port.out.OrderRepository;
 import io.github.athirson010.domain.model.PolicyProposal;
 import io.github.athirson010.domain.model.PolicyProposalId;
@@ -19,43 +20,48 @@ import java.util.UUID;
 public class OrderApplicationService implements CreateOrderUseCase {
 
     private final OrderRepository orderRepository;
+    private final FraudQueuePort fraudQueuePort;
 
     @Override
     @Transactional
     public PolicyProposal createPolicyRequest(PolicyProposal policyProposal) {
-        log.info("Creating policy proposal for customer: {}", policyProposal.getCustomerId());
+        log.info("Criando proposta de apólice para cliente: {}", policyProposal.getCustomerId());
 
         PolicyProposal savedPolicy = orderRepository.save(policyProposal);
 
-        log.info("Policy proposal created with ID: {}", savedPolicy.getId().asString());
+        log.info("Proposta de apólice criada com ID: {}", savedPolicy.getId().asString());
+
+        fraudQueuePort.sendToFraudQueue(savedPolicy);
+        log.info("Proposta de apólice enviada para fila de fraude: {}", savedPolicy.getId().asString());
+
         return savedPolicy;
     }
 
     @Override
     public Optional<PolicyProposal> findPolicyRequestById(PolicyProposalId id) {
-        log.debug("Finding policy proposal by ID: {}", id.asString());
+        log.debug("Buscando proposta de apólice por ID: {}", id.asString());
         return orderRepository.findById(id);
     }
 
     @Override
     public Optional<PolicyProposal> findPolicyRequestByCustomerId(UUID customerId) {
-        log.debug("Finding policy proposal by customer ID: {}", customerId);
+        log.debug("Buscando proposta de apólice por ID do cliente: {}", customerId);
         return orderRepository.findByCustomerId(customerId);
     }
 
     @Override
     @Transactional
     public PolicyProposal cancelPolicyRequest(PolicyProposalId id, String reason) {
-        log.info("Cancelling policy proposal: {}", id.asString());
+        log.info("Cancelando proposta de apólice: {}", id.asString());
 
         PolicyProposal policyProposal = orderRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Policy proposal not found: " + id.asString()));
+                .orElseThrow(() -> new IllegalArgumentException("Proposta de apólice não encontrada: " + id.asString()));
 
         policyProposal.cancel(reason, Instant.now());
 
         PolicyProposal savedPolicy = orderRepository.save(policyProposal);
 
-        log.info("Policy proposal cancelled: {}", savedPolicy.getId().asString());
+        log.info("Proposta de apólice cancelada: {}", savedPolicy.getId().asString());
         return savedPolicy;
     }
 }
