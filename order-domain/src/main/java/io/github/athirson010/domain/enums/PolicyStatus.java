@@ -11,4 +11,15 @@ public enum PolicyStatus {
     public boolean isFinalState() {
         return this == APPROVED || this == REJECTED || this == CANCELED;
     }
+
+    public static PolicyStatus fromString(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("PolicyStatus cannot be null");
+        }
+        try {
+            return valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid policy status: " + value);
+        }
+    }
 }

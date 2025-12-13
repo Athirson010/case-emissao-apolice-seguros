@@ -1,27 +1,22 @@
 package io.github.athirson010.adapters.out.persistence.mongo.mapper;
 
 import io.github.athirson010.adapters.out.persistence.mongo.document.AssistanceEntity;
-import io.github.athirson010.domain.model.Assistance;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AssistanceEntityMapper {
 
-    public AssistanceEntity toEntity(Assistance domain) {
-        if (domain == null) {
+    public AssistanceEntity toEntity(String assistanceName) {
+        if (assistanceName == null) {
             return null;
         }
 
         return AssistanceEntity.builder()
-                .assistanceName(domain.getAssistanceName())
+                .assistanceName(assistanceName)
                 .build();
     }
 
-    public Assistance toDomain(AssistanceEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-
-        return Assistance.of(entity.getAssistanceName());
+    public String toDomain(AssistanceEntity entity) {
+        return entity != null ? entity.getAssistanceName() : null;
     }
 }

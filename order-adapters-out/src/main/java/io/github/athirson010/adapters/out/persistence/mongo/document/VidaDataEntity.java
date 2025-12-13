@@ -1,13 +1,15 @@
 package io.github.athirson010.adapters.out.persistence.mongo.document;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
 @Data
 @Builder
 @NoArgsConstructor
-@AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class VidaDataEntity extends CategorySpecificDataEntity {
 

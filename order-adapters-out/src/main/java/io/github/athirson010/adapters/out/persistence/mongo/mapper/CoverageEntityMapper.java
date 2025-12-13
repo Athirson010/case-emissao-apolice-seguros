@@ -1,7 +1,7 @@
 package io.github.athirson010.adapters.out.persistence.mongo.mapper;
 
 import io.github.athirson010.adapters.out.persistence.mongo.document.CoverageEntity;
-import io.github.athirson010.domain.model.Coverage;
+import io.github.athirson010.domain.model.Money;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -9,25 +9,22 @@ public class CoverageEntityMapper {
 
     private final MoneyEntityMapper moneyMapper = new MoneyEntityMapper();
 
-    public CoverageEntity toEntity(Coverage domain) {
-        if (domain == null) {
+    public CoverageEntity toEntity(String coverageName, Money coverageAmount) {
+        if (coverageName == null || coverageAmount == null) {
             return null;
         }
 
         return CoverageEntity.builder()
-                .coverageName(domain.getCoverageName())
-                .coverageAmount(moneyMapper.toEntity(domain.getCoverageAmount()))
+                .coverageName(coverageName)
+                .coverageAmount(moneyMapper.toEntity(coverageAmount))
                 .build();
     }
 
-    public Coverage toDomain(CoverageEntity entity) {
-        if (entity == null) {
-            return null;
-        }
+    public String getCoverageName(CoverageEntity entity) {
+        return entity != null ? entity.getCoverageName() : null;
+    }
 
-        return Coverage.of(
-                entity.getCoverageName(),
-                moneyMapper.toDomain(entity.getCoverageAmount())
-        );
+    public Money getCoverageAmount(CoverageEntity entity) {
+        return entity != null ? moneyMapper.toDomain(entity.getCoverageAmount()) : null;
     }
 }

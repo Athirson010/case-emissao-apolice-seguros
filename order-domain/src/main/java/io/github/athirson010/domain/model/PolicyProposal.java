@@ -3,6 +3,7 @@ package io.github.athirson010.domain.model;
 import io.github.athirson010.domain.enums.Category;
 import io.github.athirson010.domain.enums.PaymentMethod;
 import io.github.athirson010.domain.enums.PolicyStatus;
+import io.github.athirson010.domain.enums.SalesChannel;
 import io.github.athirson010.domain.exception.InvalidTransitionException;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,7 +21,7 @@ public class PolicyProposal {
     private UUID customerId;
     private String productId;
     private Category category;
-    private String salesChannel;
+    private SalesChannel salesChannel;
     private PaymentMethod paymentMethod;
     private Money totalMonthlyPremiumAmount;
     private Money insuredAmount;
@@ -40,7 +41,7 @@ public class PolicyProposal {
             UUID customerId,
             String productId,
             Category category,
-            String salesChannel,
+            SalesChannel salesChannel,
             PaymentMethod paymentMethod,
             Money totalMonthlyPremiumAmount,
             Money insuredAmount,

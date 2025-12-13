@@ -8,6 +8,13 @@ import io.github.athirson010.adapters.in.web.mapper.PolicyRequestMapper;
 import io.github.athirson010.core.port.in.CreateOrderUseCase;
 import io.github.athirson010.domain.model.PolicyProposal;
 import io.github.athirson010.domain.model.PolicyProposalId;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -18,12 +25,27 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/policies")
 @RequiredArgsConstructor
+@Tag(name = "Policy Proposals", description = "Endpoints para gerenciamento de propostas de apólices de seguros")
 public class PolicyRequestController {
 
     private final CreateOrderUseCase createOrderUseCase;
 
     @PostMapping
-    public ResponseEntity<CreatePolicyResponse> createPolicy(@RequestBody CreatePolicyRequest request) {
+    @Operation(
+            summary = "Criar nova proposta de apólice",
+            description = "Cria uma nova proposta de apólice de seguro com os dados fornecidos. A proposta é criada no estado RECEIVED."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Proposta criada com sucesso",
+                    content = @Content(schema = @Schema(implementation = CreatePolicyResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos fornecidos")
+    })
+    public ResponseEntity<CreatePolicyResponse> createPolicy(
+            @Parameter(description = "Dados da proposta de apólice a ser criada", required = true)
+            @RequestBody @jakarta.validation.Valid CreatePolicyRequest request) {
         log.info("Received request to create policy for customer: {}", request.getCustomerId());
 
         PolicyProposal policyProposal = PolicyRequestMapper.toDomain(request);
@@ -36,9 +58,24 @@ public class PolicyRequestController {
     }
 
     @PostMapping("/{id}/cancel")
+    @Operation(
+            summary = "Cancelar proposta de apólice",
+            description = "Cancela uma proposta de apólice existente. Apenas propostas que não estão em estado final podem ser canceladas."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Proposta cancelada com sucesso",
+                    content = @Content(schema = @Schema(implementation = CancelPolicyResponse.class))
+            ),
+            @ApiResponse(responseCode = "404", description = "Proposta não encontrada"),
+            @ApiResponse(responseCode = "400", description = "Proposta já está em estado final e não pode ser cancelada")
+    })
     public ResponseEntity<CancelPolicyResponse> cancelPolicy(
+            @Parameter(description = "ID da proposta a ser cancelada", required = true, example = "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c")
             @PathVariable String id,
-            @RequestBody CancelPolicyRequest request
+            @Parameter(description = "Motivo do cancelamento", required = true)
+            @RequestBody @jakarta.validation.Valid CancelPolicyRequest request
     ) {
         log.info("Received request to cancel policy: {}", id);
 
@@ -57,7 +94,21 @@ public class PolicyRequestController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CreatePolicyResponse> getPolicy(@PathVariable String id) {
+    @Operation(
+            summary = "Consultar proposta de apólice",
+            description = "Busca uma proposta de apólice específica pelo seu ID"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Proposta encontrada",
+                    content = @Content(schema = @Schema(implementation = CreatePolicyResponse.class))
+            ),
+            @ApiResponse(responseCode = "404", description = "Proposta não encontrada")
+    })
+    public ResponseEntity<CreatePolicyResponse> getPolicy(
+            @Parameter(description = "ID da proposta", required = true, example = "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c")
+            @PathVariable String id) {
         log.info("Received request to retrieve policy: {}", id);
 
         PolicyProposalId policyId = PolicyProposalId.from(id);

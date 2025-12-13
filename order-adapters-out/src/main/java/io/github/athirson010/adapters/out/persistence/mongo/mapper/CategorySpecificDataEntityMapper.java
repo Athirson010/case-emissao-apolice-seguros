@@ -1,7 +1,7 @@
 package io.github.athirson010.adapters.out.persistence.mongo.mapper;
 
 import io.github.athirson010.adapters.out.persistence.mongo.document.*;
-import io.github.athirson010.domain.model.Category;
+import io.github.athirson010.domain.enums.Category;
 import org.springframework.stereotype.Component;
 
 @Component

@@ -45,6 +45,8 @@ public class OrderMongoAdapter implements OrderRepository {
         log.debug("Finding policy proposal by customer ID: {}", customerId);
 
         return mongoRepository.findByCustomerId(customerId.toString())
+                .stream()
+                .findFirst()
                 .map(mapper::toDomain);
     }
 

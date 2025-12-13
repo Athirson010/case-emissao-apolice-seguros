@@ -5,6 +5,7 @@ import io.github.athirson010.adapters.in.web.dto.CreatePolicyRequest;
 import io.github.athirson010.adapters.in.web.dto.CreatePolicyResponse;
 import io.github.athirson010.domain.enums.Category;
 import io.github.athirson010.domain.enums.PaymentMethod;
+import io.github.athirson010.domain.enums.SalesChannel;
 import io.github.athirson010.domain.model.Money;
 import io.github.athirson010.domain.model.PolicyProposal;
 
@@ -24,11 +25,11 @@ public class PolicyRequestMapper {
         return PolicyProposal.create(
                 UUID.fromString(request.getCustomerId()),
                 request.getProductId(),
-                Category.valueOf(request.getCategory().toUpperCase()),
-                request.getSalesChannel(),
-                PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase()),
-                Money.brl(request.getTotalMonthlyPremiumAmount()),
-                Money.brl(request.getInsuredAmount()),
+                Category.fromString(request.getCategory()),
+                SalesChannel.fromString(request.getSalesChannel()),
+                PaymentMethod.fromString(request.getPaymentMethod()),
+                Money.brl(new BigDecimal(request.getTotalMonthlyPremiumAmount())),
+                Money.brl(new BigDecimal(request.getInsuredAmount())),
                 convertCoverages(request.getCoverages()),
                 request.getAssistances(),
                 Instant.now()
@@ -51,10 +52,13 @@ public class PolicyRequestMapper {
                 .build();
     }
 
-    private static Map<String, Money> convertCoverages(Map<String, BigDecimal> coverages) {
+    private static Map<String, Money> convertCoverages(Map<String, String> coverages) {
         Map<String, Money> result = new HashMap<>();
         if (coverages != null) {
-            coverages.forEach((key, value) -> result.put(key, Money.brl(value)));
+            coverages.forEach((key, value) -> {
+                BigDecimal amount = new BigDecimal(value);
+                result.put(key, Money.brl(amount));
+            });
         }
         return result;
     }
