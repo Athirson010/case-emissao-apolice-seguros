@@ -5,25 +5,49 @@
 [![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2+-green.svg)](https://spring.io/projects/spring-boot)
 [![MongoDB](https://img.shields.io/badge/MongoDB-latest-green.svg)](https://www.mongodb.com/)
-[![AWS](https://img.shields.io/badge/AWS-SNS-orange.svg)](https://aws.amazon.com/sns/)
+[![Kafka](https://img.shields.io/badge/Kafka-3.1+-black.svg)](https://kafka.apache.org/)
+[![AWS](https://img.shields.io/badge/AWS-SQS-orange.svg)](https://aws.amazon.com/sqs/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## 📋 Sobre o Projeto
 
-Sistema robusto e escalável para emissão, gerenciamento e consulta de apólices de seguros, desenvolvido com foco em *
-*Arquitetura Hexagonal (Ports and Adapters)** e boas práticas de desenvolvimento. O sistema utiliza MongoDB para
-persistência, AWS SNS para mensageria e implementa validações de fraude e notificações assíncronas.
+Sistema robusto e escalável para emissão, gerenciamento e análise de apólices de seguros, desenvolvido com foco em **Arquitetura Hexagonal (Ports and Adapters)**, **Event-Driven Architecture** e boas práticas de desenvolvimento.
+
+O sistema utiliza:
+- **MongoDB** para persistência
+- **AWS SQS** para processamento assíncrono de análise de fraude
+- **Apache Kafka** para publicação de eventos de apólices aprovadas
+- **Spring Profiles** para separação de contextos e escalabilidade independente
 
 ## 🏗️ Arquitetura
 
 ![Diagrama de Solução](docs/diagrama.png)
 
-O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapters)**, garantindo:
+O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapters)** com **Event-Driven Architecture**, garantindo:
 
 - **Separação de responsabilidades** entre camadas de domínio, aplicação e infraestrutura
 - **Independência de frameworks** e tecnologias externas
+- **Processamento assíncrono** com filas e eventos
+- **Escalabilidade independente** de cada contexto via Spring Profiles
 - **Facilidade de testes** e manutenção
 - **Flexibilidade** para mudanças tecnológicas
+
+### Arquitetura de Profiles - Separação de Contextos
+
+A aplicação utiliza **Spring Profiles** para separar contextos e permitir escalabilidade independente:
+
+| Profile | Descrição | Porta | Componentes Ativos |
+|---------|-----------|-------|-------------------|
+| **api** | REST API para criação de apólices | 8080 | Controllers, SQS Producer, MongoDB |
+| **fraud-consumer** | Consumer para análise de fraude | 8081 | SQS Consumer, Kafka Producer, MongoDB |
+
+**Benefícios:**
+- ✅ **1 único build** - Um JAR para ambos os contextos
+- ✅ **Escalabilidade Independente** - Escale API e Consumer separadamente
+- ✅ **Isolamento de Falhas** - Se o consumer falhar, a API continua funcionando
+- ✅ **Otimização de Recursos** - Cada contexto usa apenas o necessário
+
+📖 **Documentação completa**: [PROFILES.md](PROFILES.md)
 
 ### Estrutura Modular
 
@@ -31,9 +55,9 @@ O projeto está organizado em módulos Maven independentes seguindo os princípi
 
 ```
 ├── order-domain/           # Núcleo da aplicação
-│   ├── Entidades de domínio (PolicyRequest)
+│   ├── Entidades de domínio (PolicyProposal)
 │   ├── Value Objects (Money, PolicyRequestId, HistoryEntry)
-│   ├── Enums (PolicyStatus, Category, PaymentMethod)
+│   ├── Enums (PolicyStatus, Category, RiskClassification)
 │   ├── Regras de negócio e validações reutilizáveis
 │   └── Exceções de domínio
 │
@@ -41,55 +65,156 @@ O projeto está organizado em módulos Maven independentes seguindo os princípi
 │   ├── Casos de uso (CreateOrderUseCase)
 │   ├── Portas de entrada (in) - interfaces para adaptadores de entrada
 │   ├── Portas de saída (out) - interfaces para adaptadores de saída
-│   └── Serviços de aplicação que orquestram o domínio
+│   ├── Serviços de aplicação que orquestram o domínio
+│   └── PolicyValidationService - Validação de regras de negócio
 │
 ├── order-adapters-in/      # Adaptadores de entrada
-│   ├── Controllers REST
+│   ├── Controllers REST (@Profile("api"))
+│   ├── SQS Consumer (@Profile("fraud-consumer"))
 │   ├── DTOs de request/response
 │   └── Mappers (conversão entre DTOs e entidades de domínio)
 │
 ├── order-adapters-out/     # Adaptadores de saída
 │   ├── Implementação de persistência (MongoDB)
-│   ├── Integração com AWS SNS (mensageria)
-│   ├── Integração com APIs externas (fraude)
+│   ├── SQS Producer (@Profile("api"))
+│   ├── Kafka Producer (@Profile("fraud-consumer"))
+│   ├── Integração com APIs externas (fraude - mock)
 │   └── Mappers de persistência (conversão entre domínio e documentos)
 │
 └── order-application/      # Inicialização
     ├── Configuração Spring Boot
-    ├── Application properties
+    ├── KafkaConfig (@Profile("fraud-consumer"))
+    ├── Application properties (unificado)
     └── Testes de arquitetura (ArchUnit)
+```
+
+## 🔄 Fluxo de Processamento Completo
+
+```
+┌─────────────────────────────────┐
+│    Profile: API (porta 8080)    │
+└────────────┬────────────────────┘
+             │
+             │ 1. POST /policies
+             ↓
+      ┌─────────────┐
+      │  Controller │
+      └──────┬──────┘
+             │
+             ├─→ 2. Persiste MongoDB (status: RECEIVED)
+             │
+             └─→ 3. Envia SQS (order-service-fraud-consumer)
+                    │
+                    │
+                    ↓
+┌────────────────────────────────────────┐
+│ Profile: fraud-consumer (porta 8081)   │
+└────────────┬───────────────────────────┘
+             │
+             │ 4. Consumer SQS recebe
+             ↓
+      ┌──────────────┐
+      │ Fraud Queue  │
+      │   Consumer   │
+      └──────┬───────┘
+             │
+             ├─→ 5. API Fraudes (Mock)
+             │       ↓ RiskClassification
+             │
+             ├─→ 6. PolicyValidationService
+             │       ↓ Valida limites por categoria
+             │
+             ├─→ 7. Atualiza MongoDB
+             │        ├─ VALIDATED → APPROVED (se válido)
+             │        └─ VALIDATED → REJECTED (se inválido)
+             │
+             └─→ 8. Se APPROVED:
+                     Publica Kafka (order-topic)
 ```
 
 ## 🎯 Funcionalidades
 
-### Gestão de Solicitações de Apólices
+### Gestão de Apólices
 
-- ✅ Criar nova solicitação de apólice
-- ✅ Consultar solicitação por ID
-- ✅ Cancelar solicitação de apólice
+- ✅ Criar nova proposta de apólice
+- ✅ Consultar apólice por ID
+- ✅ Cancelar apólice
 - ✅ Máquina de estados com transições validadas
 - ✅ Histórico completo de alterações de status
-- ✅ Validação de fraude integrada
-- ✅ Notificações via AWS SNS
+
+### Análise de Fraude Assíncrona
+
+- ✅ Análise automática via API de fraude (mock)
+- ✅ Classificação de risco do cliente (REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION)
+- ✅ Validação de limites de capital segurado por categoria e classificação
+- ✅ Processamento assíncrono via SQS
+
+### Publicação de Eventos
+
+- ✅ Eventos de apólices aprovadas publicados no Kafka
+- ✅ Integração com sistemas downstream
+- ✅ Garantia de entrega com confirmação (acks=all)
 
 ### Fluxo de Estados
 
-O sistema implementa uma máquina de estados robusta:
+```
+RECEIVED → VALIDATED → APPROVED → (Kafka Event)
+    ↓           ↓
+CANCELED   REJECTED
+```
 
-```
-RECEIVED → VALIDATED → PENDING → APPROVED
-    ↓           ↓          ↓
-REJECTED ← ─────┴──────────┘
-    ↓
-CANCELED (pode ser cancelado a qualquer momento antes dos estados finais)
-```
+**Transições válidas:**
+- `RECEIVED` → `VALIDATED` ou `CANCELED`
+- `VALIDATED` → `APPROVED` ou `REJECTED`
 
 ### Categorias de Seguro Suportadas
 
 - 🚗 **AUTO** - Seguro Automotivo
 - ❤️ **VIDA** - Seguro de Vida
 - 🏠 **RESIDENCIAL** - Seguro Residencial
+- 🏢 **EMPRESARIAL** - Seguro Empresarial
 - 📦 **OUTROS** - Outros tipos de seguro
+
+### Classificações de Risco
+
+- 👤 **REGULAR** - Cliente regular
+- ⚠️ **HIGH_RISK** - Cliente de alto risco
+- ⭐ **PREFERENTIAL** - Cliente preferencial
+- ❓ **NO_INFORMATION** - Sem informações do cliente
+
+### Regras de Validação por Classificação
+
+#### Cliente REGULAR
+| Categoria | Limite de Capital Segurado |
+|-----------|---------------------------|
+| VIDA, RESIDENCIAL | ≤ R$ 500.000,00 |
+| AUTO | ≤ R$ 350.000,00 |
+| EMPRESARIAL | ≤ R$ 255.000,00 |
+| OUTROS | ≤ R$ 100.000,00 |
+
+#### Cliente HIGH_RISK
+| Categoria | Limite de Capital Segurado |
+|-----------|---------------------------|
+| AUTO | ≤ R$ 250.000,00 |
+| RESIDENCIAL | ≤ R$ 150.000,00 |
+| VIDA, EMPRESARIAL | ≤ R$ 125.000,00 |
+| OUTROS | ≤ R$ 50.000,00 |
+
+#### Cliente PREFERENTIAL
+| Categoria | Limite de Capital Segurado |
+|-----------|---------------------------|
+| VIDA | < R$ 800.000,00 |
+| AUTO, RESIDENCIAL | < R$ 450.000,00 |
+| EMPRESARIAL | ≤ R$ 375.000,00 |
+| OUTROS | ≤ R$ 300.000,00 |
+
+#### Cliente NO_INFORMATION
+| Categoria | Limite de Capital Segurado |
+|-----------|---------------------------|
+| VIDA, RESIDENCIAL | ≤ R$ 200.000,00 |
+| AUTO | ≤ R$ 75.000,00 |
+| EMPRESARIAL | ≤ R$ 55.000,00 |
+| OUTROS | ≤ R$ 30.000,00 |
 
 ### Métodos de Pagamento
 
@@ -105,17 +230,19 @@ CANCELED (pode ser cancelado a qualquer momento antes dos estados finais)
 - **Spring Boot 3.2.1**
 - **Spring Web** (REST API)
 - **Spring Data MongoDB**
+- **Spring Kafka 3.1.1** - Produtor de eventos
+- **Spring Cloud AWS 3.1.0** - Integração com SQS
 - **Lombok** - Redução de boilerplate
 
 ### Banco de Dados
 
-- **MongoDB** - Banco de dados NoSQL para persistência
+- **MongoDB 7.0** - Banco de dados NoSQL para persistência
 
-### Mensageria e Integração
+### Mensageria e Eventos
 
-- **AWS SNS** - Notificações assíncronas
-- **Spring Cloud AWS 3.1.0** - Integração com AWS
-- **LocalStack** - Emulação de serviços AWS em ambiente local
+- **AWS SQS** - Fila para processamento assíncrono de fraude
+- **Apache Kafka** - Publicação de eventos de apólices aprovadas
+- **LocalStack 3.0** - Emulação de serviços AWS em ambiente local
 
 ### Qualidade de Código
 
@@ -126,12 +253,13 @@ CANCELED (pode ser cancelado a qualquer momento antes dos estados finais)
 ### Monitoramento
 
 - **Spring Actuator** - Endpoints de health e métricas
+- **Kafka UI** - Interface gráfica para monitoramento do Kafka
 
 ## 📦 Pré-requisitos
 
 - Java 17 ou superior
 - Maven 3.8+
-- Docker e Docker Compose (para MongoDB e LocalStack)
+- Docker e Docker Compose
 - Git
 
 ## 🔧 Instalação e Execução
@@ -143,81 +271,109 @@ git clone https://github.com/seu-usuario/emissao-apolice-seguros.git
 cd emissao-apolice-seguros
 ```
 
-### 2. Configure e inicie MongoDB e LocalStack
+### 2. Inicie a infraestrutura (MongoDB, LocalStack, Kafka)
 
 ```bash
-# Crie um arquivo docker-compose.yml na raiz do projeto
 docker-compose up -d
 ```
 
-**Exemplo de docker-compose.yml:**
+Aguarde até que todos os serviços estejam saudáveis:
 
-```yaml
-version: '3.8'
-services:
-  mongodb:
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin123
-      MONGO_INITDB_DATABASE: insurance_db
-    volumes:
-      - mongodb_data:/data/db
-
-  localstack:
-    image: localstack/localstack:latest
-    ports:
-      - "4566:4566"
-    environment:
-      - SERVICES=sns
-      - AWS_DEFAULT_REGION=us-east-1
-    volumes:
-      - "./localstack-init:/etc/localstack/init/ready.d"
-
-volumes:
-  mongodb_data:
+```bash
+docker ps
 ```
+
+Verifique que estão rodando:
+- MongoDB (porta 27017)
+- LocalStack SQS (porta 4566)
+- Kafka (porta 9092)
+- Zookeeper (porta 2181)
+- Kafka UI (porta 8090)
 
 ### 3. Compile o projeto
 
 ```bash
-mvn clean install
+mvn clean install -DskipTests
 ```
 
-### 4. Execute a aplicação
+### 4. Execute os profiles
+
+#### Opção A: Executar ambos os profiles simultaneamente
+
+**Terminal 1 - Profile API:**
+```bash
+# Windows
+start-api.bat
+
+# Linux/Mac
+./start-api.sh
+```
+
+**Terminal 2 - Profile Fraud Consumer:**
+```bash
+# Windows
+start-fraud-consumer.bat
+
+# Linux/Mac
+./start-fraud-consumer.sh
+```
+
+#### Opção B: Executar manualmente com Maven
+
+**Profile API:**
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=api
+```
+
+**Profile Fraud Consumer:**
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=fraud-consumer
+```
+
+#### Opção C: Executar com JAR
 
 ```bash
-cd order-application
-mvn spring-boot:run
+# Compilar
+mvn clean package -DskipTests
+
+# Profile API
+java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar --spring.profiles.active=api
+
+# Profile Fraud Consumer
+java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar --spring.profiles.active=fraud-consumer
 ```
 
-Ou execute o JAR gerado:
+### 5. Verifique os serviços
 
+**Profile API:**
 ```bash
-java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
+curl http://localhost:8080/actuator/health
 ```
 
-### 5. Acesse os endpoints
+**Profile Fraud Consumer:**
+```bash
+curl http://localhost:8081/actuator/health
+```
 
-- **API Base URL:** `http://localhost:8080`
-- **Health Check:** `http://localhost:8080/actuator/health`
-- **Métricas:** `http://localhost:8080/actuator/metrics`
+**Kafka UI:**
+```
+http://localhost:8090
+```
 
 ## 🔌 Endpoints da API
 
-### Solicitações de Apólice
+### Profile API (porta 8080)
 
 | Método | Endpoint                | Descrição                         |
 |--------|-------------------------|-----------------------------------|
-| POST   | `/policies`             | Criar nova solicitação de apólice |
-| GET    | `/policies/{id}`        | Buscar solicitação por ID         |
-| POST   | `/policies/{id}/cancel` | Cancelar solicitação de apólice   |
+| POST   | `/policies`             | Criar nova proposta de apólice |
+| GET    | `/policies/{id}`        | Buscar apólice por ID         |
+| DELETE | `/policies/{id}`        | Cancelar apólice   |
+| GET    | `/actuator/health`      | Health check |
 
-### Exemplo de Request - Criar Solicitação de Apólice
+### Exemplo de Request - Criar Apólice
 
-**POST** `/policies`
+**POST** `http://localhost:8080/policies`
 
 ```json
 {
@@ -247,19 +403,13 @@ java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
   "status": "RECEIVED",
-  "created_at": "2024-12-12T10:30:00Z"
+  "created_at": "2024-12-13T10:30:00Z"
 }
 ```
 
-### Exemplo de Request - Cancelar Solicitação
+### Exemplo de Request - Cancelar Apólice
 
-**POST** `/policies/{id}/cancel`
-
-```json
-{
-  "reason": "Cliente solicitou cancelamento antes da aprovação"
-}
-```
+**DELETE** `http://localhost:8080/policies/{id}`
 
 **Response:**
 
@@ -267,21 +417,22 @@ java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
   "status": "CANCELED",
-  "finished_at": "2024-12-12T11:00:00Z"
+  "finished_at": "2024-12-13T11:00:00Z"
 }
 ```
 
-### Exemplo de Request - Consultar Solicitação
+### Exemplo de Request - Consultar Apólice
 
-**GET** `/policies/{id}`
+**GET** `http://localhost:8080/policies/{id}`
 
 **Response:**
 
 ```json
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
-  "status": "PENDING",
-  "created_at": "2024-12-12T10:30:00Z"
+  "status": "APPROVED",
+  "created_at": "2024-12-13T10:30:00Z",
+  "finished_at": "2024-12-13T10:32:15Z"
 }
 ```
 
@@ -311,6 +462,8 @@ O projeto utiliza **ArchUnit** para garantir que as regras de arquitetura hexago
 ## 📊 Padrões de Design Implementados
 
 - **Hexagonal Architecture (Ports and Adapters)** - Separação completa entre domínio e infraestrutura
+- **Event-Driven Architecture** - Processamento assíncrono com SQS e Kafka
+- **CQRS Simplificado** - Separação de comandos (API) e processamento (Consumer)
 - **Repository Pattern** - Abstração de persistência (MongoDB)
 - **Factory Method Pattern** - Criação de entidades de domínio através de métodos estáticos
 - **Builder Pattern** - Construção de objetos complexos (via Lombok @Builder)
@@ -318,29 +471,87 @@ O projeto utiliza **ArchUnit** para garantir que as regras de arquitetura hexago
 - **Value Objects** - Objetos imutáveis de domínio (Money, PolicyRequestId)
 - **State Machine Pattern** - Controle de transições de estado da apólice
 - **Mapper Pattern** - Conversão entre DTOs e entidades de domínio
+- **Conditional Bean Registration** - Beans condicionais via @Profile
 
-## 📈 Monitoramento e Métricas
+## 🎯 Escalabilidade
 
-Endpoints do Spring Actuator disponíveis:
+### Cenário 1: Alta demanda na API
+```bash
+# Escale apenas o profile API
+docker-compose up --scale api=5
+```
 
-- `/actuator/health` - Status da aplicação e dependências (MongoDB, AWS)
+### Cenário 2: Backlog na fila de fraude
+```bash
+# Escale apenas o consumer
+docker-compose up --scale fraud-consumer=3
+```
+
+### Cenário 3: Escala completa
+```bash
+# Escale ambos independentemente
+docker-compose up --scale api=3 --scale fraud-consumer=5
+```
+
+## 📈 Monitoramento
+
+### Endpoints do Spring Actuator
+
+**Profile API (porta 8080):**
+- `/actuator/health` - Status da aplicação e dependências (MongoDB, SQS)
 - `/actuator/info` - Informações da aplicação
 - `/actuator/metrics` - Métricas da aplicação
+
+**Profile Fraud Consumer (porta 8081):**
+- `/actuator/health` - Status da aplicação e dependências (MongoDB, SQS, Kafka)
+- `/actuator/metrics` - Métricas da aplicação
+
+### Kafka UI
+
+Acesse `http://localhost:8090` para visualizar:
+- Tópicos Kafka
+- Mensagens publicadas
+- Consumer groups
+- Partições e offsets
+
+### Monitoramento de SQS
+
+```bash
+# Listar filas
+aws --endpoint-url=http://localhost:4566 sqs list-queues
+
+# Ver atributos da fila
+aws --endpoint-url=http://localhost:4566 sqs get-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/order-service-fraud-consumer \
+  --attribute-names All
+```
+
+📖 **Guia completo de monitoramento**: [MONITORING.md](MONITORING.md)
 
 ## 📝 Regras de Negócio
 
 ### Transições de Estado
 
-- ✅ Solicitações são criadas no estado **RECEIVED**
+- ✅ Apólices são criadas no estado **RECEIVED**
 - ✅ Apenas transições válidas são permitidas
 - ✅ Estados finais (**APPROVED**, **REJECTED**, **CANCELED**) não podem ser alterados
 - ✅ Cancelamento só é permitido antes de atingir estado final
 
 ### Validações
 
-- ✅ **Validação de Fraude** - Integração com API externa de análise de fraude
-- ✅ **Validação de Pagamento** - Verificação de método de pagamento
-- ✅ **Validação de Subscrição** - Análise de risco baseada em categoria e valor segurado
+- ✅ **Análise de Fraude** - Integração com API de análise de fraude (mock)
+- ✅ **Classificação de Risco** - 4 categorias (REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION)
+- ✅ **Validação de Limites** - 16 regras diferentes (4 classificações × 4 categorias principais)
+- ✅ **Validação de Categoria** - Verificação de categoria de seguro
+- ✅ **Validação de Capital Segurado** - Limites por categoria e classificação
+
+### Processamento Assíncrono
+
+- ✅ API recebe requisição e persiste com status **RECEIVED**
+- ✅ Mensagem enviada para SQS para processamento
+- ✅ Consumer processa análise de fraude de forma assíncrona
+- ✅ Status atualizado para **APPROVED** ou **REJECTED**
+- ✅ Apólices aprovadas publicadas no Kafka para downstream
 
 ### Histórico
 
@@ -348,10 +559,10 @@ Endpoints do Spring Actuator disponíveis:
 - ✅ Cada entrada do histórico contém: status, timestamp e motivo (quando aplicável)
 - ✅ Histórico imutável e auditável
 
-### Notificações
+## 📚 Documentação Adicional
 
-- ✅ Notificações automáticas via AWS SNS para eventos importantes
-- ✅ Eventos notificados: criação, aprovação, rejeição e cancelamento
+- [PROFILES.md](PROFILES.md) - Arquitetura detalhada de profiles
+- [MONITORING.md](MONITORING.md) - Guia de monitoramento de Kafka e SQS
 
 ## 🤝 Contribuindo
 
