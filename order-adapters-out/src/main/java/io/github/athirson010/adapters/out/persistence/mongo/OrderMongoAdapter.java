@@ -1,6 +1,6 @@
 package io.github.athirson010.adapters.out.persistence.mongo;
 
-import io.github.athirson010.application.port.out.OrderRepository;
+import io.github.athirson010.core.port.out.OrderRepository;
 import io.github.athirson010.domain.model.PolicyRequest;
 import io.github.athirson010.domain.model.PolicyRequestId;
 import lombok.RequiredArgsConstructor;

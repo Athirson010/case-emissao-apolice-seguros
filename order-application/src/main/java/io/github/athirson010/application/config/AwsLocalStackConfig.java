@@ -1,4 +1,4 @@
-package io.github.athirson010.bootstrap.config;
+package io.github.athirson010.application.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

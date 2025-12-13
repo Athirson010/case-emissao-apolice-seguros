@@ -24,12 +24,12 @@ class ArchitectureTest {
     }
 
     @Test
-    @DisplayName("Domain layer should not depend on application layer")
-    void domainShouldNotDependOnApplication() {
+    @DisplayName("Domain layer should not depend on core layer")
+    void domainShouldNotDependOnCore() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..domain..")
-                .should().dependOnClassesThat().resideInAPackage("..application..")
-                .because("Domain layer must be independent of application layer");
+                .should().dependOnClassesThat().resideInAPackage("..core..")
+                .because("Domain layer must be independent of core layer");
 
         rule.check(importedClasses);
     }
@@ -79,12 +79,12 @@ class ArchitectureTest {
     }
 
     @Test
-    @DisplayName("Application layer should not depend on adapters")
-    void applicationShouldNotDependOnAdapters() {
+    @DisplayName("Core layer should not depend on adapters")
+    void coreShouldNotDependOnAdapters() {
         ArchRule rule = noClasses()
-                .that().resideInAPackage("..application..")
+                .that().resideInAPackage("..core..")
                 .should().dependOnClassesThat().resideInAPackage("..adapters..")
-                .because("Application layer must be independent of adapter implementations");
+                .because("Core layer must be independent of adapter implementations");
 
         rule.check(importedClasses);
     }
@@ -133,8 +133,8 @@ class ArchitectureTest {
                         "org.springframework.data..",
                         "io.awspring..",
                         "..adapters..",
-                        "..application..",
-                        "..bootstrap.."
+                        "..core..",
+                        "..application.."
                 )
                 .because("Domain must be pure Java without external framework dependencies");
 
@@ -142,15 +142,15 @@ class ArchitectureTest {
     }
 
     @Test
-    @DisplayName("Application layer should only depend on domain")
-    void applicationShouldOnlyDependOnDomain() {
+    @DisplayName("Core layer should only depend on domain")
+    void coreShouldOnlyDependOnDomain() {
         ArchRule rule = noClasses()
-                .that().resideInAPackage("..application..")
+                .that().resideInAPackage("..core..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "..adapters..",
-                        "..bootstrap.."
+                        "..application.."
                 )
-                .because("Application layer should only depend on domain layer");
+                .because("Core layer should only depend on domain layer");
 
         rule.check(importedClasses);
     }
@@ -159,7 +159,7 @@ class ArchitectureTest {
     @DisplayName("Naming convention: Ports should be interfaces")
     void portsShouldBeInterfaces() {
         ArchRule rule = classes()
-                .that().resideInAnyPackage("..application.port.in..", "..application.port.out..")
+                .that().resideInAnyPackage("..core.port.in..", "..core.port.out..")
                 .should().beInterfaces()
                 .because("Ports must be interfaces following hexagonal architecture");
 

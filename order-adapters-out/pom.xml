@@ -16,10 +16,10 @@
     <description>Output adapters - Persistence, Messaging, and External APIs</description>
 
     <dependencies>
-        <!-- Application dependency -->
+        <!-- Core dependency -->
         <dependency>
             <groupId>io.github.athirson010</groupId>
-            <artifactId>order-application</artifactId>
+            <artifactId>order-core</artifactId>
         </dependency>
 
         <!-- Spring Boot Data MongoDB -->

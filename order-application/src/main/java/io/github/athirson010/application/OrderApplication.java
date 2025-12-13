@@ -1,4 +1,4 @@
-package io.github.athirson010.bootstrap;
+package io.github.athirson010.application;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

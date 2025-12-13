@@ -1,7 +1,7 @@
-package io.github.athirson010.application.service;
+package io.github.athirson010.core.service;
 
-import io.github.athirson010.application.port.in.CreateOrderUseCase;
-import io.github.athirson010.application.port.out.OrderRepository;
+import io.github.athirson010.core.port.in.CreateOrderUseCase;
+import io.github.athirson010.core.port.out.OrderRepository;
 import io.github.athirson010.domain.model.PolicyRequest;
 import io.github.athirson010.domain.model.PolicyRequestId;
 import lombok.RequiredArgsConstructor;

@@ -35,7 +35,7 @@ O projeto está organizado em módulos Maven independentes seguindo os princípi
 │   ├── Regras de negócio e validações reutilizáveis
 │   └── Exceções de domínio
 │
-├── order-application/      # Camada de aplicação
+├── order-core/             # Camada de aplicação
 │   ├── Casos de uso (CreateOrderUseCase)
 │   ├── Portas de entrada (in) - interfaces para adaptadores de entrada
 │   ├── Portas de saída (out) - interfaces para adaptadores de saída
@@ -52,7 +52,7 @@ O projeto está organizado em módulos Maven independentes seguindo os princípi
 │   ├── Integração com APIs externas (fraude)
 │   └── Mappers de persistência (conversão entre domínio e documentos)
 │
-└── order-bootstrap/        # Inicialização
+└── order-application/      # Inicialização
     ├── Configuração Spring Boot
     ├── Application properties
     └── Testes de arquitetura (ArchUnit)
@@ -173,13 +173,13 @@ mvn clean install
 
 ### 4. Execute a aplicação
 ```bash
-cd order-bootstrap
+cd order-application
 mvn spring-boot:run
 ```
 
 Ou execute o JAR gerado:
 ```bash
-java -jar order-bootstrap/target/order-bootstrap-0.0.1-SNAPSHOT.jar
+java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 ```
 
 ### 5. Acesse os endpoints
@@ -271,11 +271,11 @@ java -jar order-bootstrap/target/order-bootstrap-0.0.1-SNAPSHOT.jar
 mvn test
 
 # Executar testes de um módulo específico
-cd order-bootstrap
+cd order-application
 mvn test
 
 # Executar testes de arquitetura com ArchUnit
-cd order-bootstrap
+cd order-application
 mvn test -Dtest=ArchitectureTest
 ```
 

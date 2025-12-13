@@ -14,10 +14,10 @@
 
     <modules>
         <module>order-domain</module>
-        <module>order-application</module>
+        <module>order-core</module>
         <module>order-adapters-in</module>
         <module>order-adapters-out</module>
-        <module>order-bootstrap</module>
+        <module>order-application</module>
     </modules>
 
     <properties>
@@ -71,7 +71,7 @@
 
             <dependency>
                 <groupId>io.github.athirson010</groupId>
-                <artifactId>order-application</artifactId>
+                <artifactId>order-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

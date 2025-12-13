@@ -1,4 +1,4 @@
-package io.github.athirson010.application.port.out;
+package io.github.athirson010.core.port.out;
 
 import io.github.athirson010.domain.model.PolicyRequest;
 import io.github.athirson010.domain.model.PolicyRequestId;

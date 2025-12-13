@@ -5,7 +5,7 @@ import io.github.athirson010.adapters.in.web.dto.CancelPolicyResponse;
 import io.github.athirson010.adapters.in.web.dto.CreatePolicyRequest;
 import io.github.athirson010.adapters.in.web.dto.CreatePolicyResponse;
 import io.github.athirson010.adapters.in.web.mapper.PolicyRequestMapper;
-import io.github.athirson010.application.port.in.CreateOrderUseCase;
+import io.github.athirson010.core.port.in.CreateOrderUseCase;
 import io.github.athirson010.domain.model.PolicyRequest;
 import io.github.athirson010.domain.model.PolicyRequestId;
 import lombok.RequiredArgsConstructor;
