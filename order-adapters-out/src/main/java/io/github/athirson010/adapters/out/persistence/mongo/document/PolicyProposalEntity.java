@@ -18,51 +18,26 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "policy_proposals")
-@CompoundIndexes({
-        @CompoundIndex(name = "customer_status_idx", def = "{'customerId': 1, 'status': 1}")
-})
 public class PolicyProposalEntity {
 
     @Id
     private String id;
-
-    @Indexed(unique = true)
     private String proposalNumber;
-
-    @Indexed
     private String customerId;
-
     private String productId;
-
     private String category;
-
     private MoneyEntity insuredAmount;
-
     private MoneyEntity totalMonthlyPremiumAmount;
-
     private List<CoverageEntity> coverages;
-
     private List<AssistanceEntity> assistances;
-
     private String salesChannel;
-
     private String paymentMethod;
-
     private String customerRiskProfile;
-
-    @Indexed
     private String status;
-
     private CategorySpecificDataEntity categorySpecificData;
-
-    @Indexed
     private Instant createdAt;
-
     private Instant validatedAt;
-
     private Instant finishedAt;
-
     private Instant canceledAt;
-
     private List<StatusHistoryEntryEntity> statusHistory;
 }

@@ -53,7 +53,49 @@ public class PolicyProposalEntityMapper {
             return null;
         }
 
-        // Conversão de Entity para Domain será implementada quando necessário
-        throw new UnsupportedOperationException("Domain conversion not yet implemented");
+        // Converte List<CoverageEntity> para Map<String, Money>
+        java.util.Map<String, io.github.athirson010.domain.model.Money> coveragesMap = new java.util.HashMap<>();
+        if (entity.getCoverages() != null) {
+            entity.getCoverages().forEach(coverage -> {
+                String name = coverageMapper.getCoverageName(coverage);
+                io.github.athirson010.domain.model.Money amount = coverageMapper.getCoverageAmount(coverage);
+                if (name != null && amount != null) {
+                    coveragesMap.put(name, amount);
+                }
+            });
+        }
+
+        // Converte List<AssistanceEntity> para List<String>
+        java.util.List<String> assistancesList = entity.getAssistances() != null
+                ? entity.getAssistances().stream()
+                    .map(assistanceMapper::toDomain)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toList())
+                : java.util.Collections.emptyList();
+
+        // Converte List<StatusHistoryEntryEntity> para List<HistoryEntry>
+        java.util.List<io.github.athirson010.domain.model.HistoryEntry> historyList = entity.getStatusHistory() != null
+                ? entity.getStatusHistory().stream()
+                    .map(statusHistoryMapper::toDomain)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toList())
+                : new java.util.ArrayList<>();
+
+        return PolicyProposal.builder()
+                .id(io.github.athirson010.domain.model.PolicyProposalId.from(entity.getId()))
+                .customerId(java.util.UUID.fromString(entity.getCustomerId()))
+                .productId(entity.getProductId())
+                .category(io.github.athirson010.domain.enums.Category.valueOf(entity.getCategory()))
+                .salesChannel(io.github.athirson010.domain.enums.SalesChannel.valueOf(entity.getSalesChannel()))
+                .paymentMethod(io.github.athirson010.domain.enums.PaymentMethod.valueOf(entity.getPaymentMethod()))
+                .totalMonthlyPremiumAmount(moneyMapper.toDomain(entity.getTotalMonthlyPremiumAmount()))
+                .insuredAmount(moneyMapper.toDomain(entity.getInsuredAmount()))
+                .coverages(coveragesMap)
+                .assistances(assistancesList)
+                .status(io.github.athirson010.domain.enums.PolicyStatus.valueOf(entity.getStatus()))
+                .createdAt(entity.getCreatedAt())
+                .finishedAt(entity.getFinishedAt())
+                .history(historyList)
+                .build();
     }
 }
