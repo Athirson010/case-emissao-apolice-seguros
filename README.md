@@ -11,9 +11,11 @@
 
 ## 📋 Sobre o Projeto
 
-Sistema robusto e escalável para emissão, gerenciamento e análise de apólices de seguros, desenvolvido com foco em **Arquitetura Hexagonal (Ports and Adapters)**, **Event-Driven Architecture** e boas práticas de desenvolvimento.
+Sistema robusto e escalável para emissão, gerenciamento e análise de apólices de seguros, desenvolvido com foco em *
+*Arquitetura Hexagonal (Ports and Adapters)**, **Event-Driven Architecture** e boas práticas de desenvolvimento.
 
 O sistema utiliza:
+
 - **MongoDB** para persistência
 - **AWS SQS** para processamento assíncrono de análise de fraude
 - **Apache Kafka** para publicação de eventos de apólices aprovadas
@@ -23,7 +25,8 @@ O sistema utiliza:
 
 ![Diagrama de Solução](docs/diagrama.png)
 
-O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapters)** com **Event-Driven Architecture**, garantindo:
+O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapters)** com **Event-Driven Architecture**,
+garantindo:
 
 - **Separação de responsabilidades** entre camadas de domínio, aplicação e infraestrutura
 - **Independência de frameworks** e tecnologias externas
@@ -36,12 +39,13 @@ O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapter
 
 A aplicação utiliza **Spring Profiles** para separar contextos e permitir escalabilidade independente:
 
-| Profile | Descrição | Porta | Componentes Ativos |
-|---------|-----------|-------|-------------------|
-| **api** | REST API para criação de apólices | 8080 | Controllers, SQS Producer, MongoDB |
-| **fraud-consumer** | Consumer para análise de fraude | 8081 | SQS Consumer, Kafka Producer, MongoDB |
+| Profile            | Descrição                         | Porta | Componentes Ativos                    |
+|--------------------|-----------------------------------|-------|---------------------------------------|
+| **api**            | REST API para criação de apólices | 8080  | Controllers, SQS Producer, MongoDB    |
+| **fraud-consumer** | Consumer para análise de fraude   | 8081  | SQS Consumer, Kafka Producer, MongoDB |
 
 **Benefícios:**
+
 - ✅ **1 único build** - Um JAR para ambos os contextos
 - ✅ **Escalabilidade Independente** - Escale API e Consumer separadamente
 - ✅ **Isolamento de Falhas** - Se o consumer falhar, a API continua funcionando
@@ -164,6 +168,7 @@ CANCELED   REJECTED
 ```
 
 **Transições válidas:**
+
 - `RECEIVED` → `VALIDATED` ou `CANCELED`
 - `VALIDATED` → `APPROVED` ou `REJECTED`
 
@@ -185,36 +190,40 @@ CANCELED   REJECTED
 ### Regras de Validação por Classificação
 
 #### Cliente REGULAR
-| Categoria | Limite de Capital Segurado |
-|-----------|---------------------------|
-| VIDA, RESIDENCIAL | ≤ R$ 500.000,00 |
-| AUTO | ≤ R$ 350.000,00 |
-| EMPRESARIAL | ≤ R$ 255.000,00 |
-| OUTROS | ≤ R$ 100.000,00 |
+
+| Categoria         | Limite de Capital Segurado |
+|-------------------|----------------------------|
+| VIDA, RESIDENCIAL | ≤ R$ 500.000,00            |
+| AUTO              | ≤ R$ 350.000,00            |
+| EMPRESARIAL       | ≤ R$ 255.000,00            |
+| OUTROS            | ≤ R$ 100.000,00            |
 
 #### Cliente HIGH_RISK
-| Categoria | Limite de Capital Segurado |
-|-----------|---------------------------|
-| AUTO | ≤ R$ 250.000,00 |
-| RESIDENCIAL | ≤ R$ 150.000,00 |
-| VIDA, EMPRESARIAL | ≤ R$ 125.000,00 |
-| OUTROS | ≤ R$ 50.000,00 |
+
+| Categoria         | Limite de Capital Segurado |
+|-------------------|----------------------------|
+| AUTO              | ≤ R$ 250.000,00            |
+| RESIDENCIAL       | ≤ R$ 150.000,00            |
+| VIDA, EMPRESARIAL | ≤ R$ 125.000,00            |
+| OUTROS            | ≤ R$ 50.000,00             |
 
 #### Cliente PREFERENTIAL
-| Categoria | Limite de Capital Segurado |
-|-----------|---------------------------|
-| VIDA | < R$ 800.000,00 |
-| AUTO, RESIDENCIAL | < R$ 450.000,00 |
-| EMPRESARIAL | ≤ R$ 375.000,00 |
-| OUTROS | ≤ R$ 300.000,00 |
+
+| Categoria         | Limite de Capital Segurado |
+|-------------------|----------------------------|
+| VIDA              | < R$ 800.000,00            |
+| AUTO, RESIDENCIAL | < R$ 450.000,00            |
+| EMPRESARIAL       | ≤ R$ 375.000,00            |
+| OUTROS            | ≤ R$ 300.000,00            |
 
 #### Cliente NO_INFORMATION
-| Categoria | Limite de Capital Segurado |
-|-----------|---------------------------|
-| VIDA, RESIDENCIAL | ≤ R$ 200.000,00 |
-| AUTO | ≤ R$ 75.000,00 |
-| EMPRESARIAL | ≤ R$ 55.000,00 |
-| OUTROS | ≤ R$ 30.000,00 |
+
+| Categoria         | Limite de Capital Segurado |
+|-------------------|----------------------------|
+| VIDA, RESIDENCIAL | ≤ R$ 200.000,00            |
+| AUTO              | ≤ R$ 75.000,00             |
+| EMPRESARIAL       | ≤ R$ 55.000,00             |
+| OUTROS            | ≤ R$ 30.000,00             |
 
 ### Métodos de Pagamento
 
@@ -284,6 +293,7 @@ docker ps
 ```
 
 Verifique que estão rodando:
+
 - MongoDB (porta 27017)
 - LocalStack SQS (porta 4566)
 - Kafka (porta 9092)
@@ -301,6 +311,7 @@ mvn clean install -DskipTests
 #### Opção A: Executar ambos os profiles simultaneamente
 
 **Terminal 1 - Profile API:**
+
 ```bash
 # Windows
 start-api.bat
@@ -310,6 +321,7 @@ start-api.bat
 ```
 
 **Terminal 2 - Profile Fraud Consumer:**
+
 ```bash
 # Windows
 start-fraud-consumer.bat
@@ -321,11 +333,13 @@ start-fraud-consumer.bat
 #### Opção B: Executar manualmente com Maven
 
 **Profile API:**
+
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=api
 ```
 
 **Profile Fraud Consumer:**
+
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=fraud-consumer
 ```
@@ -346,16 +360,19 @@ java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar --spring
 ### 5. Verifique os serviços
 
 **Profile API:**
+
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
 **Profile Fraud Consumer:**
+
 ```bash
 curl http://localhost:8081/actuator/health
 ```
 
 **Kafka UI:**
+
 ```
 http://localhost:8090
 ```
@@ -364,12 +381,12 @@ http://localhost:8090
 
 ### Profile API (porta 8080)
 
-| Método | Endpoint                | Descrição                         |
-|--------|-------------------------|-----------------------------------|
-| POST   | `/policies`             | Criar nova proposta de apólice |
-| GET    | `/policies/{id}`        | Buscar apólice por ID         |
-| DELETE | `/policies/{id}`        | Cancelar apólice   |
-| GET    | `/actuator/health`      | Health check |
+| Método | Endpoint           | Descrição                      |
+|--------|--------------------|--------------------------------|
+| POST   | `/policies`        | Criar nova proposta de apólice |
+| GET    | `/policies/{id}`   | Buscar apólice por ID          |
+| DELETE | `/policies/{id}`   | Cancelar apólice               |
+| GET    | `/actuator/health` | Health check                   |
 
 ### Exemplo de Request - Criar Apólice
 
@@ -476,18 +493,21 @@ O projeto utiliza **ArchUnit** para garantir que as regras de arquitetura hexago
 ## 🎯 Escalabilidade
 
 ### Cenário 1: Alta demanda na API
+
 ```bash
 # Escale apenas o profile API
 docker-compose up --scale api=5
 ```
 
 ### Cenário 2: Backlog na fila de fraude
+
 ```bash
 # Escale apenas o consumer
 docker-compose up --scale fraud-consumer=3
 ```
 
 ### Cenário 3: Escala completa
+
 ```bash
 # Escale ambos independentemente
 docker-compose up --scale api=3 --scale fraud-consumer=5
@@ -498,17 +518,20 @@ docker-compose up --scale api=3 --scale fraud-consumer=5
 ### Endpoints do Spring Actuator
 
 **Profile API (porta 8080):**
+
 - `/actuator/health` - Status da aplicação e dependências (MongoDB, SQS)
 - `/actuator/info` - Informações da aplicação
 - `/actuator/metrics` - Métricas da aplicação
 
 **Profile Fraud Consumer (porta 8081):**
+
 - `/actuator/health` - Status da aplicação e dependências (MongoDB, SQS, Kafka)
 - `/actuator/metrics` - Métricas da aplicação
 
 ### Kafka UI
 
 Acesse `http://localhost:8090` para visualizar:
+
 - Tópicos Kafka
 - Mensagens publicadas
 - Consumer groups

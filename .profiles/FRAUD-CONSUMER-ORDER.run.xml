@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false" name="fraud-consumer-order" type="Application" factoryName="Application">
+        <option name="ALTERNATIVE_JRE_PATH" value="ms-17"/>
+        <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true"/>
+        <envs>
+            <env name="SERVER.PORT" value="8081"/>
+            <env name="SPRING.PROFILES.ACTIVE" value="fraud-consumer"/>
+        </envs>
+        <option name="MAIN_CLASS_NAME" value="io.github.athirson010.application.OrderApplication"/>
+        <module name="order-application"/>
+        <method v="2">
+            <option name="Make" enabled="true"/>
+        </method>
+    </configuration>
+</component>

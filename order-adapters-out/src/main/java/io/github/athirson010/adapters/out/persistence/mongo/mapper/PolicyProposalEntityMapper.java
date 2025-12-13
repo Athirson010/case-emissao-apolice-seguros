@@ -68,17 +68,17 @@ public class PolicyProposalEntityMapper {
         // Converte List<AssistanceEntity> para List<String>
         java.util.List<String> assistancesList = entity.getAssistances() != null
                 ? entity.getAssistances().stream()
-                    .map(assistanceMapper::toDomain)
-                    .filter(java.util.Objects::nonNull)
-                    .collect(Collectors.toList())
+                .map(assistanceMapper::toDomain)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList())
                 : java.util.Collections.emptyList();
 
         // Converte List<StatusHistoryEntryEntity> para List<HistoryEntry>
         java.util.List<io.github.athirson010.domain.model.HistoryEntry> historyList = entity.getStatusHistory() != null
                 ? entity.getStatusHistory().stream()
-                    .map(statusHistoryMapper::toDomain)
-                    .filter(java.util.Objects::nonNull)
-                    .collect(Collectors.toList())
+                .map(statusHistoryMapper::toDomain)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList())
                 : new java.util.ArrayList<>();
 
         return PolicyProposal.builder()

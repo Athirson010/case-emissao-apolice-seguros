@@ -75,7 +75,7 @@ public class PolicyRequestController {
     })
     public ResponseEntity<CancelPolicyResponse> cancelPolicy(
             @Parameter(description = "ID da proposta a ser cancelada", required = true, example = "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c")
-            @PathVariable String id,
+            @PathVariable("id") String id,
             @Parameter(description = "Motivo do cancelamento", required = true)
             @RequestBody @jakarta.validation.Valid CancelPolicyRequest request
     ) {
@@ -110,7 +110,7 @@ public class PolicyRequestController {
     })
     public ResponseEntity<CreatePolicyResponse> getPolicy(
             @Parameter(description = "ID da proposta", required = true, example = "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c")
-            @PathVariable String id) {
+            @PathVariable("id") String id) {
         log.info("Received request to retrieve policy: {}", id);
 
         PolicyProposalId policyId = PolicyProposalId.from(id);
