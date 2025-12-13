@@ -10,7 +10,9 @@
 
 ## 📋 Sobre o Projeto
 
-Sistema robusto e escalável para emissão, gerenciamento e consulta de apólices de seguros, desenvolvido com foco em **Arquitetura Hexagonal (Ports and Adapters)** e boas práticas de desenvolvimento. O sistema utiliza MongoDB para persistência, AWS SNS para mensageria e implementa validações de fraude e notificações assíncronas.
+Sistema robusto e escalável para emissão, gerenciamento e consulta de apólices de seguros, desenvolvido com foco em *
+*Arquitetura Hexagonal (Ports and Adapters)** e boas práticas de desenvolvimento. O sistema utiliza MongoDB para
+persistência, AWS SNS para mensageria e implementa validações de fraude e notificações assíncronas.
 
 ## 🏗️ Arquitetura
 
@@ -61,6 +63,7 @@ O projeto está organizado em módulos Maven independentes seguindo os princípi
 ## 🎯 Funcionalidades
 
 ### Gestão de Solicitações de Apólices
+
 - ✅ Criar nova solicitação de apólice
 - ✅ Consultar solicitação por ID
 - ✅ Cancelar solicitação de apólice
@@ -70,6 +73,7 @@ O projeto está organizado em módulos Maven independentes seguindo os princípi
 - ✅ Notificações via AWS SNS
 
 ### Fluxo de Estados
+
 O sistema implementa uma máquina de estados robusta:
 
 ```
@@ -81,12 +85,14 @@ CANCELED (pode ser cancelado a qualquer momento antes dos estados finais)
 ```
 
 ### Categorias de Seguro Suportadas
+
 - 🚗 **AUTO** - Seguro Automotivo
 - ❤️ **VIDA** - Seguro de Vida
 - 🏠 **RESIDENCIAL** - Seguro Residencial
 - 📦 **OUTROS** - Outros tipos de seguro
 
 ### Métodos de Pagamento
+
 - 💳 **CREDIT_CARD** - Cartão de Crédito
 - 💰 **PIX** - PIX
 - 📄 **BOLETO** - Boleto Bancário
@@ -94,6 +100,7 @@ CANCELED (pode ser cancelado a qualquer momento antes dos estados finais)
 ## 🚀 Tecnologias Utilizadas
 
 ### Core
+
 - **Java 17**
 - **Spring Boot 3.2.1**
 - **Spring Web** (REST API)
@@ -101,19 +108,23 @@ CANCELED (pode ser cancelado a qualquer momento antes dos estados finais)
 - **Lombok** - Redução de boilerplate
 
 ### Banco de Dados
+
 - **MongoDB** - Banco de dados NoSQL para persistência
 
 ### Mensageria e Integração
+
 - **AWS SNS** - Notificações assíncronas
 - **Spring Cloud AWS 3.1.0** - Integração com AWS
 - **LocalStack** - Emulação de serviços AWS em ambiente local
 
 ### Qualidade de Código
+
 - **JUnit 5** - Testes unitários
 - **ArchUnit** - Testes de arquitetura
 - **Maven** - Gerenciamento de dependências e build
 
 ### Monitoramento
+
 - **Spring Actuator** - Endpoints de health e métricas
 
 ## 📦 Pré-requisitos
@@ -126,18 +137,21 @@ CANCELED (pode ser cancelado a qualquer momento antes dos estados finais)
 ## 🔧 Instalação e Execução
 
 ### 1. Clone o repositório
+
 ```bash
 git clone https://github.com/seu-usuario/emissao-apolice-seguros.git
 cd emissao-apolice-seguros
 ```
 
 ### 2. Configure e inicie MongoDB e LocalStack
+
 ```bash
 # Crie um arquivo docker-compose.yml na raiz do projeto
 docker-compose up -d
 ```
 
 **Exemplo de docker-compose.yml:**
+
 ```yaml
 version: '3.8'
 services:
@@ -167,22 +181,26 @@ volumes:
 ```
 
 ### 3. Compile o projeto
+
 ```bash
 mvn clean install
 ```
 
 ### 4. Execute a aplicação
+
 ```bash
 cd order-application
 mvn spring-boot:run
 ```
 
 Ou execute o JAR gerado:
+
 ```bash
 java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 ```
 
 ### 5. Acesse os endpoints
+
 - **API Base URL:** `http://localhost:8080`
 - **Health Check:** `http://localhost:8080/actuator/health`
 - **Métricas:** `http://localhost:8080/actuator/metrics`
@@ -191,11 +209,11 @@ java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 
 ### Solicitações de Apólice
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| POST | `/policies` | Criar nova solicitação de apólice |
-| GET | `/policies/{id}` | Buscar solicitação por ID |
-| POST | `/policies/{id}/cancel` | Cancelar solicitação de apólice |
+| Método | Endpoint                | Descrição                         |
+|--------|-------------------------|-----------------------------------|
+| POST   | `/policies`             | Criar nova solicitação de apólice |
+| GET    | `/policies/{id}`        | Buscar solicitação por ID         |
+| POST   | `/policies/{id}/cancel` | Cancelar solicitação de apólice   |
 
 ### Exemplo de Request - Criar Solicitação de Apólice
 
@@ -224,6 +242,7 @@ java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 ```
 
 **Response:**
+
 ```json
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
@@ -243,6 +262,7 @@ java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 ```
 
 **Response:**
+
 ```json
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
@@ -256,6 +276,7 @@ java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar
 **GET** `/policies/{id}`
 
 **Response:**
+
 ```json
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
@@ -282,6 +303,7 @@ mvn test -Dtest=ArchitectureTest
 ### Testes de Arquitetura
 
 O projeto utiliza **ArchUnit** para garantir que as regras de arquitetura hexagonal sejam respeitadas:
+
 - Validação de dependências entre módulos
 - Verificação de isolamento do domínio
 - Garantia de que adaptadores dependem apenas de portas
@@ -308,22 +330,26 @@ Endpoints do Spring Actuator disponíveis:
 ## 📝 Regras de Negócio
 
 ### Transições de Estado
+
 - ✅ Solicitações são criadas no estado **RECEIVED**
 - ✅ Apenas transições válidas são permitidas
 - ✅ Estados finais (**APPROVED**, **REJECTED**, **CANCELED**) não podem ser alterados
 - ✅ Cancelamento só é permitido antes de atingir estado final
 
 ### Validações
+
 - ✅ **Validação de Fraude** - Integração com API externa de análise de fraude
 - ✅ **Validação de Pagamento** - Verificação de método de pagamento
 - ✅ **Validação de Subscrição** - Análise de risco baseada em categoria e valor segurado
 
 ### Histórico
+
 - ✅ Todas as alterações de estado são registradas
 - ✅ Cada entrada do histórico contém: status, timestamp e motivo (quando aplicável)
 - ✅ Histórico imutável e auditável
 
 ### Notificações
+
 - ✅ Notificações automáticas via AWS SNS para eventos importantes
 - ✅ Eventos notificados: criação, aprovação, rejeição e cancelamento
 

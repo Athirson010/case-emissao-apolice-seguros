@@ -6,7 +6,7 @@ import io.github.athirson010.adapters.in.web.dto.CreatePolicyResponse;
 import io.github.athirson010.domain.enums.Category;
 import io.github.athirson010.domain.enums.PaymentMethod;
 import io.github.athirson010.domain.model.Money;
-import io.github.athirson010.domain.model.PolicyRequest;
+import io.github.athirson010.domain.model.PolicyProposal;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -20,8 +20,8 @@ public class PolicyRequestMapper {
 
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_INSTANT;
 
-    public static PolicyRequest toDomain(CreatePolicyRequest request) {
-        return PolicyRequest.create(
+    public static PolicyProposal toDomain(CreatePolicyRequest request) {
+        return PolicyProposal.create(
                 UUID.fromString(request.getCustomerId()),
                 request.getProductId(),
                 Category.valueOf(request.getCategory().toUpperCase()),
@@ -35,7 +35,7 @@ public class PolicyRequestMapper {
         );
     }
 
-    public static CreatePolicyResponse toCreateResponse(PolicyRequest policy) {
+    public static CreatePolicyResponse toCreateResponse(PolicyProposal policy) {
         return CreatePolicyResponse.builder()
                 .policyRequestId(policy.getId().asString())
                 .status(policy.getStatus().name())
@@ -43,7 +43,7 @@ public class PolicyRequestMapper {
                 .build();
     }
 
-    public static CancelPolicyResponse toCancelResponse(PolicyRequest policy) {
+    public static CancelPolicyResponse toCancelResponse(PolicyProposal policy) {
         return CancelPolicyResponse.builder()
                 .policyRequestId(policy.getId().asString())
                 .status(policy.getStatus().name())

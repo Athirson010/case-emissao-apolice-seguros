@@ -1,18 +1,18 @@
 package io.github.athirson010.core.port.in;
 
-import io.github.athirson010.domain.model.PolicyRequest;
-import io.github.athirson010.domain.model.PolicyRequestId;
+import io.github.athirson010.domain.model.PolicyProposal;
+import io.github.athirson010.domain.model.PolicyProposalId;
 
 import java.util.Optional;
 import java.util.UUID;
 
 public interface CreateOrderUseCase {
 
-    PolicyRequest createPolicyRequest(PolicyRequest policyRequest);
+    PolicyProposal createPolicyRequest(PolicyProposal policyProposal);
 
-    Optional<PolicyRequest> findPolicyRequestById(PolicyRequestId id);
+    Optional<PolicyProposal> findPolicyRequestById(PolicyProposalId id);
 
-    Optional<PolicyRequest> findPolicyRequestByCustomerId(UUID customerId);
+    Optional<PolicyProposal> findPolicyRequestByCustomerId(UUID customerId);
 
-    PolicyRequest cancelPolicyRequest(PolicyRequestId id, String reason);
+    PolicyProposal cancelPolicyRequest(PolicyProposalId id, String reason);
 }

@@ -1,20 +1,20 @@
 package io.github.athirson010.core.port.out;
 
-import io.github.athirson010.domain.model.PolicyRequest;
-import io.github.athirson010.domain.model.PolicyRequestId;
+import io.github.athirson010.domain.model.PolicyProposal;
+import io.github.athirson010.domain.model.PolicyProposalId;
 
 import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderRepository {
 
-    PolicyRequest save(PolicyRequest policyRequest);
+    PolicyProposal save(PolicyProposal policyProposal);
 
-    Optional<PolicyRequest> findById(PolicyRequestId id);
+    Optional<PolicyProposal> findById(PolicyProposalId id);
 
-    Optional<PolicyRequest> findByCustomerId(UUID customerId);
+    Optional<PolicyProposal> findByCustomerId(UUID customerId);
 
-    void deleteById(PolicyRequestId id);
+    void deleteById(PolicyProposalId id);
 
-    boolean existsById(PolicyRequestId id);
+    boolean existsById(PolicyProposalId id);
 }

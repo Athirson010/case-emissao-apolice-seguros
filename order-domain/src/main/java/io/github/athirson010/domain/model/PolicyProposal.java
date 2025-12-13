@@ -4,7 +4,6 @@ import io.github.athirson010.domain.enums.Category;
 import io.github.athirson010.domain.enums.PaymentMethod;
 import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.exception.InvalidTransitionException;
-import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
@@ -14,30 +13,30 @@ import java.util.*;
 
 @Getter
 @ToString
-@Builder(access = AccessLevel.PRIVATE)
-public class PolicyRequest {
+@Builder
+public class PolicyProposal {
 
-    private final PolicyRequestId id;
-    private final UUID customerId;
-    private final String productId;
-    private final Category category;
-    private final String salesChannel;
-    private final PaymentMethod paymentMethod;
-    private final Money totalMonthlyPremiumAmount;
-    private final Money insuredAmount;
-    private final Map<String, Money> coverages;
-    private final List<String> assistances;
+    private PolicyProposalId id;
+    private UUID customerId;
+    private String productId;
+    private Category category;
+    private String salesChannel;
+    private PaymentMethod paymentMethod;
+    private Money totalMonthlyPremiumAmount;
+    private Money insuredAmount;
+    private Map<String, Money> coverages;
+    private List<String> assistances;
 
     @Builder.Default
     private PolicyStatus status = PolicyStatus.RECEIVED;
 
-    private final Instant createdAt;
+    private Instant createdAt;
     private Instant finishedAt;
 
     @Builder.Default
-    private final List<HistoryEntry> history = new ArrayList<>();
+    private List<HistoryEntry> history = new ArrayList<>();
 
-    public static PolicyRequest create(
+    public static PolicyProposal create(
             UUID customerId,
             String productId,
             Category category,
@@ -49,8 +48,8 @@ public class PolicyRequest {
             List<String> assistances,
             Instant now
     ) {
-        PolicyRequest policyRequest = PolicyRequest.builder()
-                .id(PolicyRequestId.generate())
+        PolicyProposal policyProposal = PolicyProposal.builder()
+                .id(PolicyProposalId.generate())
                 .customerId(customerId)
                 .productId(productId)
                 .category(category)
@@ -59,53 +58,19 @@ public class PolicyRequest {
                 .totalMonthlyPremiumAmount(totalMonthlyPremiumAmount)
                 .insuredAmount(insuredAmount)
                 .coverages(Collections.unmodifiableMap(coverages))
-                .assistances(Collections.unmodifiableList(new ArrayList<>(assistances)))
+                .assistances(List.copyOf(assistances))
                 .status(PolicyStatus.RECEIVED)
                 .createdAt(now)
                 .build();
 
-        policyRequest.addHistoryEntry(PolicyStatus.RECEIVED, now, null);
-        return policyRequest;
-    }
-
-    public static PolicyRequest restoreForDemo(
-            PolicyRequestId id,
-            UUID customerId,
-            String productId,
-            Category category,
-            String salesChannel,
-            PaymentMethod paymentMethod,
-            Money totalMonthlyPremiumAmount,
-            Money insuredAmount,
-            Map<String, Money> coverages,
-            List<String> assistances,
-            PolicyStatus status,
-            Instant createdAt,
-            Instant finishedAt,
-            List<HistoryEntry> history
-    ) {
-        return PolicyRequest.builder()
-                .id(id)
-                .customerId(customerId)
-                .productId(productId)
-                .category(category)
-                .salesChannel(salesChannel)
-                .paymentMethod(paymentMethod)
-                .totalMonthlyPremiumAmount(totalMonthlyPremiumAmount)
-                .insuredAmount(insuredAmount)
-                .coverages(Collections.unmodifiableMap(coverages))
-                .assistances(Collections.unmodifiableList(new ArrayList<>(assistances)))
-                .status(status)
-                .createdAt(createdAt)
-                .finishedAt(finishedAt)
-                .history(new ArrayList<>(history))
-                .build();
+        policyProposal.addHistoryEntry(PolicyStatus.RECEIVED, now, null);
+        return policyProposal;
     }
 
     public void cancel(String reason, Instant now) {
         if (this.status.isFinalState()) {
             throw new InvalidTransitionException(
-                    String.format("Cannot cancel policy request in final state: %s", this.status)
+                    String.format("Cannot cancel policy proposal in final state: %s", this.status)
             );
         }
 

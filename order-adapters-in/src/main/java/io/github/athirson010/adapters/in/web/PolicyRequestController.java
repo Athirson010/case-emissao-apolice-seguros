@@ -6,8 +6,8 @@ import io.github.athirson010.adapters.in.web.dto.CreatePolicyRequest;
 import io.github.athirson010.adapters.in.web.dto.CreatePolicyResponse;
 import io.github.athirson010.adapters.in.web.mapper.PolicyRequestMapper;
 import io.github.athirson010.core.port.in.CreateOrderUseCase;
-import io.github.athirson010.domain.model.PolicyRequest;
-import io.github.athirson010.domain.model.PolicyRequestId;
+import io.github.athirson010.domain.model.PolicyProposal;
+import io.github.athirson010.domain.model.PolicyProposalId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,10 +26,10 @@ public class PolicyRequestController {
     public ResponseEntity<CreatePolicyResponse> createPolicy(@RequestBody CreatePolicyRequest request) {
         log.info("Received request to create policy for customer: {}", request.getCustomerId());
 
-        PolicyRequest policyRequest = PolicyRequestMapper.toDomain(request);
-        PolicyRequest savedPolicy = createOrderUseCase.createPolicyRequest(policyRequest);
+        PolicyProposal policyProposal = PolicyRequestMapper.toDomain(request);
+        PolicyProposal savedPolicy = createOrderUseCase.createPolicyRequest(policyProposal);
 
-        log.info("Policy request created and persisted with ID: {}", savedPolicy.getId().asString());
+        log.info("Policy proposal created and persisted with ID: {}", savedPolicy.getId().asString());
 
         CreatePolicyResponse response = PolicyRequestMapper.toCreateResponse(savedPolicy);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -43,8 +43,8 @@ public class PolicyRequestController {
         log.info("Received request to cancel policy: {}", id);
 
         try {
-            PolicyRequestId policyId = PolicyRequestId.from(id);
-            PolicyRequest cancelledPolicy = createOrderUseCase.cancelPolicyRequest(policyId, request.getReason());
+            PolicyProposalId policyId = PolicyProposalId.from(id);
+            PolicyProposal cancelledPolicy = createOrderUseCase.cancelPolicyRequest(policyId, request.getReason());
 
             log.info("Policy request cancelled and persisted: {}", id);
 
@@ -60,19 +60,19 @@ public class PolicyRequestController {
     public ResponseEntity<CreatePolicyResponse> getPolicy(@PathVariable String id) {
         log.info("Received request to retrieve policy: {}", id);
 
-        PolicyRequestId policyId = PolicyRequestId.from(id);
+        PolicyProposalId policyId = PolicyProposalId.from(id);
 
         return createOrderUseCase.findPolicyRequestById(policyId)
-                .map(policyRequest -> {
+                .map(policyProposal -> {
                     CreatePolicyResponse response = CreatePolicyResponse.builder()
-                            .policyRequestId(policyRequest.getId().asString())
-                            .status(policyRequest.getStatus().name())
-                            .createdAt(policyRequest.getCreatedAt().toString())
+                            .policyRequestId(policyProposal.getId().asString())
+                            .status(policyProposal.getStatus().name())
+                            .createdAt(policyProposal.getCreatedAt().toString())
                             .build();
                     return ResponseEntity.ok(response);
                 })
                 .orElseGet(() -> {
-                    log.warn("Policy request not found: {}", id);
+                    log.warn("Policy proposal not found: {}", id);
                     return ResponseEntity.notFound().build();
                 });
     }
