@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "document_type": "PDF - Desafio Técnico Software Engineer (Seguradora)",
+    "source_files": [
+      "desafio_software_engineer_seguradora_v2.pdf"
+    ],
+    "notes": "Todas as regras de validação do desafio técnico"
+  },
+  "validation_rules": {
+    "api_request_validations": [
+      "API-REQ-01: Existe endpoint HTTP para criação de solicitação",
+      "API-REQ-02: Request contém campos obrigatórios",
+      "API-REQ-03: Sistema gera ID único e data/hora",
+      "API-REQ-04: Persistência correta dos campos",
+      "API-REQ-05: Existe endpoint para consulta por ID",
+      "API-REQ-06: Existe endpoint para consulta por customer_id"
+    ],
+    "state_machine_validations": [
+      "STATE-01: Solicitação inicia em RECEIVED",
+      "STATE-02: RECEIVED → VALIDATED ou CANCELLED",
+      "STATE-03: VALIDATED após consulta API Fraudes",
+      "STATE-04: Regras não atendidas → REJECTED",
+      "STATE-05: Validação positiva → PENDING",
+      "STATE-06: PENDING → APPROVED, REJECTED, CANCELLED ou PENDING",
+      "STATE-07: APPROVED após pagamento E subscrição",
+      "STATE-08: APPROVED não pode ser cancelado",
+      "STATE-09: REJECTED é estado final",
+      "STATE-10: CANCELLED permitido antes de APPROVED/REJECTED"
+    ],
+    "fraud_api_validations": [
+      "FRAUD-01: Consome API mock de Fraudes",
+      "FRAUD-02: Resposta contém orderId, customerId, analyzedAt, classification, occurrences",
+      "FRAUD-03: Classification: REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION"
+    ],
+    "business_rules_by_client_type": {
+      "REGULAR": [
+        "BUS-REG-01: VIDA/RESIDENCIAL ≤ 500.000,00",
+        "BUS-REG-02: AUTO ≤ 350.000,00",
+        "BUS-REG-03: OUTROS ≤ 255.000,00"
+      ],
+      "HIGH_RISK": [
+        "BUS-HR-01: AUTO ≤ 250.000,00",
+        "BUS-HR-02: RESIDENCIAL ≤ 150.000,00",
+        "BUS-HR-03: OUTROS ≤ 125.000,00"
+      ],
+      "PREFERENTIAL": [
+        "BUS-PREF-01: VIDA < 800.000,00",
+        "BUS-PREF-02: AUTO/RESIDENCIAL < 450.000,00",
+        "BUS-PREF-03: OUTROS ≤ 375.000,00"
+      ],
+      "NO_INFORMATION": [
+        "BUS-NOINFO-01: VIDA/RESIDENCIAL ≤ 200.000,00",
+        "BUS-NOINFO-02: AUTO ≤ 75.000,00",
+        "BUS-NOINFO-03: OUTROS ≤ 55.000,00"
+      ]
+    },
+    "messaging_validations": [
+      "MSG-01: Mudança de estado gera evento",
+      "MSG-02: Eventos de pagamento/subscrição consumidos",
+      "MSG-03: Eventos duplicados não geram múltiplas transições",
+      "MSG-04: Mensagens respeitam consistência de estado"
+    ],
+    "audit_and_history_validations": [
+      "HIST-01: Mudança de estado registrada com timestamp",
+      "HIST-02: Histórico reflete ordem exata das transições"
+    ]
+  }
+}

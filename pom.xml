@@ -18,6 +18,7 @@
         <module>order-adapters-in</module>
         <module>order-adapters-out</module>
         <module>order-application</module>
+        <module>order-component-test</module>
     </modules>
 
     <properties>
@@ -92,6 +93,12 @@
             <dependency>
                 <groupId>io.github.athirson010</groupId>
                 <artifactId>order-adapters-out</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.github.athirson010</groupId>
+                <artifactId>order-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
