@@ -1,72 +1,67 @@
 package io.github.athirson010.componenttest.config;
 
+import com.mongodb.client.MongoClient;
+import com.rabbitmq.client.ConnectionFactory;
+import io.github.athirson010.adapters.out.persistence.mongo.repository.PolicyProposalMongoRepository;
+import io.github.athirson010.application.OrderApplication;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-/**
- * Base class for component tests using mocks.
- * Provides common configuration and mocked dependencies.
- *
- * All component tests should extend this class to inherit:
- * - Spring Boot test configuration
- * - Mocked external dependencies (MongoDB, Kafka, RabbitMQ)
- * - Common test setup
- *
- * This approach uses @MockBean to mock all external dependencies,
- * eliminating the need for Docker containers.
- */
 @SpringBootTest(
-    classes = BaseComponentTest.TestConfig.class,
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
-)
-@ActiveProfiles("test")
-public abstract class BaseComponentTest {
-
-    /**
-     * Test configuration that scans all application packages.
-     * This configuration mimics the main application setup.
-     */
-    @Configuration
-    @ComponentScan(basePackages = "io.github.athirson010")
-    @EnableMongoRepositories(basePackages = "io.github.athirson010.adapters.out.persistence.mongo")
-    static class TestConfig {
-        // This inner configuration class provides test-specific Spring configuration
+    classes = OrderApplication.class,
+    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
+    properties = {
+        "spring.autoconfigure.exclude=" +
+            "org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration," +
+            "org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration"
     }
+)
+@ActiveProfiles({"test", "api"})
+public abstract class BaseComponentTest {
+    @MockBean
+    protected MongoClient mongoClient;
 
-    /**
-     * Mocked MongoDB template - all database operations will be mocked
-     */
     @MockBean
     protected MongoTemplate mongoTemplate;
 
-    /**
-     * Mocked Kafka template - all Kafka operations will be mocked
-     */
+    @MockBean
+    protected PolicyProposalMongoRepository policyProposalMongoRepository;
+
     @MockBean
     protected KafkaTemplate<String, String> kafkaTemplate;
 
-    /**
-     * Setup method executed before each test.
-     * Resets all mocks to ensure test isolation.
-     */
+    @MockBean
+    protected ConnectionFactory rabbitConnectionFactory;
+
+    @MockBean(name = "rabbitTemplate")
+    protected RabbitTemplate rabbitTemplate;
+
     @BeforeEach
     public void setUp() {
-        // Reset all mocks before each test
-        Mockito.reset(mongoTemplate, kafkaTemplate);
+        Mockito.reset(
+            mongoClient,
+            mongoTemplate,
+            policyProposalMongoRepository,
+            kafkaTemplate,
+            rabbitConnectionFactory,
+            rabbitTemplate
+        );
     }
 
-    /**
-     * Utility method to reset all mocks manually if needed
-     */
     protected void resetAllMocks() {
-        Mockito.reset(mongoTemplate, kafkaTemplate);
+        Mockito.reset(
+            mongoClient,
+            mongoTemplate,
+            policyProposalMongoRepository,
+            kafkaTemplate,
+            rabbitConnectionFactory,
+            rabbitTemplate
+        );
     }
 }

@@ -42,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CancelamentoSolicitacaoApiTest extends BaseComponentTest {
 
     @Autowired
+
     private MockMvc mockMvc;
 
     @MockBean

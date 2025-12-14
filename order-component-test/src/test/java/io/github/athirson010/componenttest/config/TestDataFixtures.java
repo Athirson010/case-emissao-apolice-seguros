@@ -7,10 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Test data fixtures for component tests.
- * Provides reusable test data builders and sample objects.
- */
 public class TestDataFixtures {
 
     // Default test values from application-test.properties
@@ -77,9 +73,6 @@ public class TestDataFixtures {
             );
     }
 
-    /**
-     * Creates a sample policy request map
-     */
     public static Map<String, Object> createSamplePolicyRequestMap() {
         Map<String, Object> request = new HashMap<>();
         request.put("customer_id", DEFAULT_CUSTOMER_ID);
@@ -99,23 +92,14 @@ public class TestDataFixtures {
         return request;
     }
 
-    /**
-     * Generates a unique policy number for testing
-     */
     public static String generateUniquePolicyNumber() {
         return POLICY_NUMBER_PREFIX + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    /**
-     * Generates a unique customer ID for testing
-     */
     public static String generateUniqueCustomerId() {
         return UUID.randomUUID().toString();
     }
 
-    /**
-     * Creates a sample insurance response for mocking
-     */
     public static String createSampleInsuranceResponseJson(String policyNumber) {
         return """
             {
@@ -131,9 +115,6 @@ public class TestDataFixtures {
             );
     }
 
-    /**
-     * Creates a sample payment response for mocking
-     */
     public static String createSamplePaymentResponseJson(String transactionId) {
         return """
             {
@@ -149,9 +130,6 @@ public class TestDataFixtures {
             );
     }
 
-    /**
-     * Creates an invalid policy request (missing required fields)
-     */
     public static String createInvalidPolicyRequestJson() {
         return """
             {
@@ -162,9 +140,6 @@ public class TestDataFixtures {
             """;
     }
 
-    /**
-     * Creates a policy request with invalid amounts
-     */
     public static String createPolicyRequestWithInvalidAmountsJson() {
         return """
             {

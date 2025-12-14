@@ -4,65 +4,138 @@
     "source_files": [
       "desafio_software_engineer_seguradora_v2.pdf"
     ],
-    "notes": "Todas as regras de validação do desafio técnico"
+    "notes": "Contexto de validação focado explicitamente no ciclo de vida da solicitação de apólice e suas regras de transição de estados, conforme trecho destacado pelo usuário. Este conteúdo deve ser usado como prompt para validar a implementação da aplicação."
   },
-  "validation_rules": {
-    "api_request_validations": [
-      "API-REQ-01: Existe endpoint HTTP para criação de solicitação",
-      "API-REQ-02: Request contém campos obrigatórios",
-      "API-REQ-03: Sistema gera ID único e data/hora",
-      "API-REQ-04: Persistência correta dos campos",
-      "API-REQ-05: Existe endpoint para consulta por ID",
-      "API-REQ-06: Existe endpoint para consulta por customer_id"
+  "context": {
+    "summary": "Este contexto descreve de forma explícita e normativa todas as validações relacionadas ao ciclo de vida da solicitação de apólice. Cada estado possui regras claras de entrada, saída, bloqueios e condições obrigatórias, que devem ser rigorosamente respeitadas pela aplicação.",
+    "state_lifecycle_validations": [
+      {
+        "state": "RECEIVED",
+        "entry_validation": "Toda solicitação DEVE iniciar obrigatoriamente no estado RECEIVED no momento da criação.",
+        "allowed_transitions": [
+          "VALIDATED",
+          "CANCELLED"
+        ],
+        "forbidden_transitions": [
+          "PENDING",
+          "APPROVED",
+          "REJECTED"
+        ],
+        "process_validations": [
+          "Os dados iniciais da solicitação devem ser coletados e persistidos neste estado.",
+          "A solicitação deve aguardar obrigatoriamente a análise da API de Fraudes antes de qualquer outra transição.",
+          "Nenhuma regra de capital segurado pode ser aplicada antes do retorno da API de Fraudes."
+        ]
+      },
+      {
+        "state": "VALIDATED",
+        "entry_validation": "Este estado só pode ser alcançado após consulta bem-sucedida à API de Fraudes.",
+        "allowed_transitions": [
+          "PENDING",
+          "REJECTED"
+        ],
+        "forbidden_transitions": [
+          "APPROVED",
+          "CANCELLED"
+        ],
+        "process_validations": [
+          "A classificação de risco retornada pela API de Fraudes DEVE ser uma das seguintes: REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION.",
+          "As regras de capital segurado DEVEM ser aplicadas conforme o perfil de risco do cliente.",
+          "Caso qualquer regra de validação por perfil seja violada, a solicitação DEVE ser rejeitada."
+        ]
+      },
+      {
+        "state": "PENDING",
+        "entry_validation": "Este estado só pode ser alcançado após validação positiva das regras de negócio no estado VALIDATED.",
+        "allowed_transitions": [
+          "APPROVED",
+          "REJECTED",
+          "CANCELLED",
+          "PENDING"
+        ],
+        "forbidden_transitions": [
+          "RECEIVED",
+          "VALIDATED"
+        ],
+        "process_validations": [
+          "A solicitação deve permanecer neste estado até receber evento de confirmação de pagamento E autorização de subscrição.",
+          "Reprocessamentos podem ocorrer mantendo o estado como PENDING.",
+          "Eventos externos devem ser correlacionados corretamente com o ID da solicitação."
+        ]
+      },
+      {
+        "state": "REJECTED",
+        "entry_validation": "Pode ser alcançado se regras de negócio não forem atendidas OU se pagamento OU subscrição forem negados.",
+        "allowed_transitions": [],
+        "forbidden_transitions": [
+          "RECEIVED",
+          "VALIDATED",
+          "PENDING",
+          "APPROVED",
+          "CANCELLED"
+        ],
+        "process_validations": [
+          "Este é um estado final.",
+          "Após rejeição, nenhuma nova alteração de estado é permitida.",
+          "A rejeição deve ser registrada no histórico com data/hora."
+        ]
+      },
+      {
+        "state": "APPROVED",
+        "entry_validation": "Somente pode ser alcançado após confirmação de pagamento E autorização de subscrição.",
+        "allowed_transitions": [],
+        "forbidden_transitions": [
+          "RECEIVED",
+          "VALIDATED",
+          "PENDING",
+          "REJECTED",
+          "CANCELLED"
+        ],
+        "process_validations": [
+          "Este é um estado final.",
+          "Uma solicitação aprovada NÃO pode ser cancelada.",
+          "A data/hora de finalização deve ser registrada."
+        ]
+      },
+      {
+        "state": "CANCELLED",
+        "entry_validation": "Pode ser acionado pelo cliente a qualquer momento, exceto se a solicitação já estiver APPROVED ou REJECTED.",
+        "allowed_transitions": [],
+        "forbidden_transitions": [
+          "RECEIVED",
+          "VALIDATED",
+          "PENDING",
+          "APPROVED",
+          "REJECTED"
+        ],
+        "process_validations": [
+          "Este é um estado final.",
+          "Após cancelamento, nenhuma outra transição é permitida.",
+          "O cancelamento deve ser registrado no histórico com data/hora."
+        ]
+      }
     ],
-    "state_machine_validations": [
-      "STATE-01: Solicitação inicia em RECEIVED",
-      "STATE-02: RECEIVED → VALIDATED ou CANCELLED",
-      "STATE-03: VALIDATED após consulta API Fraudes",
-      "STATE-04: Regras não atendidas → REJECTED",
-      "STATE-05: Validação positiva → PENDING",
-      "STATE-06: PENDING → APPROVED, REJECTED, CANCELLED ou PENDING",
-      "STATE-07: APPROVED após pagamento E subscrição",
-      "STATE-08: APPROVED não pode ser cancelado",
-      "STATE-09: REJECTED é estado final",
-      "STATE-10: CANCELLED permitido antes de APPROVED/REJECTED"
-    ],
-    "fraud_api_validations": [
-      "FRAUD-01: Consome API mock de Fraudes",
-      "FRAUD-02: Resposta contém orderId, customerId, analyzedAt, classification, occurrences",
-      "FRAUD-03: Classification: REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION"
-    ],
-    "business_rules_by_client_type": {
-      "REGULAR": [
-        "BUS-REG-01: VIDA/RESIDENCIAL ≤ 500.000,00",
-        "BUS-REG-02: AUTO ≤ 350.000,00",
-        "BUS-REG-03: OUTROS ≤ 255.000,00"
-      ],
-      "HIGH_RISK": [
-        "BUS-HR-01: AUTO ≤ 250.000,00",
-        "BUS-HR-02: RESIDENCIAL ≤ 150.000,00",
-        "BUS-HR-03: OUTROS ≤ 125.000,00"
-      ],
-      "PREFERENTIAL": [
-        "BUS-PREF-01: VIDA < 800.000,00",
-        "BUS-PREF-02: AUTO/RESIDENCIAL < 450.000,00",
-        "BUS-PREF-03: OUTROS ≤ 375.000,00"
-      ],
-      "NO_INFORMATION": [
-        "BUS-NOINFO-01: VIDA/RESIDENCIAL ≤ 200.000,00",
-        "BUS-NOINFO-02: AUTO ≤ 75.000,00",
-        "BUS-NOINFO-03: OUTROS ≤ 55.000,00"
-      ]
-    },
-    "messaging_validations": [
-      "MSG-01: Mudança de estado gera evento",
-      "MSG-02: Eventos de pagamento/subscrição consumidos",
-      "MSG-03: Eventos duplicados não geram múltiplas transições",
-      "MSG-04: Mensagens respeitam consistência de estado"
-    ],
-    "audit_and_history_validations": [
-      "HIST-01: Mudança de estado registrada com timestamp",
-      "HIST-02: Histórico reflete ordem exata das transições"
+    "cross_state_validations": [
+      {
+        "rule": "Toda transição de estado deve ser validada contra o estado atual da solicitação."
+      },
+      {
+        "rule": "Transições inválidas devem ser rejeitadas com erro claro (ex: HTTP 409 ou 422)."
+      },
+      {
+        "rule": "Toda mudança de estado deve gerar registro no histórico e evento de mensageria."
+      },
+      {
+        "rule": "Estados finais (APPROVED, REJECTED, CANCELLED) encerram definitivamente o ciclo de vida."
+      }
     ]
-  }
+  },
+  "contradictions_or_conflicts": [],
+  "errors_or_warnings": [
+    {
+      "issue_type": "state_machine_strictness",
+      "description": "O desafio exige uma máquina de estados estrita, mas não define tratamento padrão para eventos fora de ordem.",
+      "proposed_solution": "Validar se a aplicação ignora ou rejeita eventos incompatíveis com o estado atual."
+    }
+  ]
 }
