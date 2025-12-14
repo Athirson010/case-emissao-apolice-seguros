@@ -1,8 +1,7 @@
-package io.github.athirson010.adapters.in.messaging.sqs;
+package io.github.athirson010.adapters.in.messaging.rabbitmq;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.awspring.cloud.sqs.annotation.SqsListener;
 import io.github.athirson010.core.port.out.FraudCheckPort;
 import io.github.athirson010.core.port.out.OrderEventPort;
 import io.github.athirson010.core.port.out.OrderRepository;
@@ -11,8 +10,8 @@ import io.github.athirson010.domain.model.FraudAnalysisResult;
 import io.github.athirson010.domain.model.PolicyProposal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.context.annotation.Profile;
-import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -29,21 +28,21 @@ public class FraudQueueConsumer {
     private final OrderRepository orderRepository;
     private final OrderEventPort orderEventPort;
 
-    @SqsListener(value = "${aws.sqs.fraud-queue-name}")
-    public void consumeMessage(Message<String> message) {
+    @RabbitListener(queues = "${rabbitmq.queues.fraud}")
+    public void consumeMessage(String messageBody) {
         try {
-            log.info("Mensagem recebida da fila de fraude");
+            log.info("Mensagem recebida da fila de fraude (RabbitMQ)");
 
-            String messageBody = message.getPayload();
             PolicyProposal policyProposal = deserializeMessage(messageBody);
 
-            log.info("Proposta de apólice desserializada. ID: {}, Cliente: {}",
+            log.info("Proposta desserializada. PolicyId={}, CustomerId={}",
                     policyProposal.getId().asString(),
                     policyProposal.getCustomerId());
 
-            FraudAnalysisResult analysisResult = fraudCheckPort.analyzeFraud(policyProposal);
+            FraudAnalysisResult analysisResult =
+                    fraudCheckPort.analyzeFraud(policyProposal);
 
-            log.info("Análise de fraude concluída para pedido: {}. Classificação: {}, Ocorrências: {}",
+            log.info("Análise concluída. PolicyId={}, Classificação={}, Ocorrências={}",
                     analysisResult.getOrderId(),
                     analysisResult.getClassification(),
                     analysisResult.getOccurrences().size());
@@ -53,14 +52,18 @@ public class FraudQueueConsumer {
         } catch (Exception e) {
             log.error("Erro ao processar mensagem da fila de fraude", e);
             throw new RuntimeException("Falha ao processar mensagem da fila de fraude", e);
+            // RabbitMQ: exception = requeue ou DLQ (dependendo config)
         }
     }
 
-    private void processValidation(PolicyProposal policyProposal, FraudAnalysisResult analysisResult) {
+    private void processValidation(
+            PolicyProposal policyProposal,
+            FraudAnalysisResult analysisResult
+    ) {
         Instant now = Instant.now();
 
         policyProposal.validate(now);
-        log.info("Proposta de apólice {} marcada como VALIDADA", policyProposal.getId().asString());
+        log.info("Policy {} marcada como VALIDADA", policyProposal.getId().asString());
 
         boolean isValid = policyValidationService.validatePolicy(
                 policyProposal,
@@ -69,30 +72,37 @@ public class FraudQueueConsumer {
 
         if (isValid) {
             policyProposal.approve(now);
-            log.info("Proposta de apólice {} APROVADA. Classificação: {}",
+
+            log.info("Policy {} APROVADA. Classificação={}",
                     policyProposal.getId().asString(),
                     analysisResult.getClassification());
 
             orderEventPort.sendOrderApprovedEvent(policyProposal);
+
         } else {
             String reason = String.format(
-                    "Apólice rejeitada devido ao capital segurado exceder o limite para cliente %s com categoria %s",
-                    analysisResult.getClassification(),
-                    policyProposal.getCategory()
+                    "Apólice rejeitada. Categoria=%s, Classificação=%s",
+                    policyProposal.getCategory(),
+                    analysisResult.getClassification()
             );
+
             policyProposal.reject(reason, now);
-            log.info("Proposta de apólice {} REJEITADA. Motivo: {}",
+
+            log.info("Policy {} REJEITADA. Motivo={}",
                     policyProposal.getId().asString(),
                     reason);
         }
 
         orderRepository.save(policyProposal);
-        log.info("Proposta de apólice {} salva com status: {}",
+
+        log.info("Policy {} persistida com status={}",
                 policyProposal.getId().asString(),
                 policyProposal.getStatus());
     }
 
-    private PolicyProposal deserializeMessage(String messageBody) throws JsonProcessingException {
+    private PolicyProposal deserializeMessage(String messageBody)
+            throws JsonProcessingException {
+
         return objectMapper.readValue(messageBody, PolicyProposal.class);
     }
 }

@@ -61,6 +61,9 @@ services:
       # Create payment-topic
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic payment-topic --replication-factor 1 --partitions 3
 
+      # Create insurance-topic
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic insurance-topic --replication-factor 1 --partitions 3
+      
       # List all topics
       echo 'Kafka topics created successfully:'
       kafka-topics --bootstrap-server kafka:29092 --list
@@ -68,30 +71,17 @@ services:
     networks:
       - order-network
 
-  # LocalStack - AWS Services Emulator
-  localstack:
-    image: localstack/localstack:3.0
-    container_name: localstack
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
     ports:
-      - "4566:4566"            # LocalStack Gateway
-      - "4510-4559:4510-4559"  # External services port range
+      - "5672:5672"
+      - "15672:15672"
     environment:
-      - SERVICES=sns,sqs
-      - DEBUG=1
-      - DOCKER_HOST=unix:///var/run/docker.sock
-      - AWS_DEFAULT_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-    volumes:
-      - "./localstack-init:/etc/localstack/init/ready.d"
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
     networks:
       - order-network
-    healthcheck:
-      test: [ "CMD", "awslocal", "sns", "list-topics" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # MongoDB
   mongodb:
