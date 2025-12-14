@@ -69,7 +69,7 @@ public class PolicyProposal {
     }
 
     public void cancel(String reason, Instant now) {
-        if (this.status.isFinalState()) {
+        if (this.status == PolicyStatus.CANCELED || this.status == PolicyStatus.REJECTED) {
             throw new InvalidTransitionException(
                     String.format("Cannot cancel policy proposal in final state: %s", this.status)
             );
