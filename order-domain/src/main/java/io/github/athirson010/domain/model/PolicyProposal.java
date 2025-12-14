@@ -5,9 +5,7 @@ import io.github.athirson010.domain.enums.PaymentMethod;
 import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.enums.SalesChannel;
 import io.github.athirson010.domain.exception.InvalidTransitionException;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 import java.time.Instant;
 import java.util.*;
@@ -15,6 +13,8 @@ import java.util.*;
 @Getter
 @ToString
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class PolicyProposal {
 
     private PolicyProposalId id;

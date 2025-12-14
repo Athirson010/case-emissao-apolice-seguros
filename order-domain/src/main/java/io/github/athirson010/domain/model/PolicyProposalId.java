@@ -2,6 +2,7 @@ package io.github.athirson010.domain.model;
 
 import java.util.UUID;
 
+
 public record PolicyProposalId(UUID value) {
 
     public static PolicyProposalId generate() {
