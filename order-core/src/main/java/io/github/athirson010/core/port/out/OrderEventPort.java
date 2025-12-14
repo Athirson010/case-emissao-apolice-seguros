@@ -4,4 +4,6 @@ import io.github.athirson010.domain.model.PolicyProposal;
 
 public interface OrderEventPort {
     void sendOrderApprovedEvent(PolicyProposal policyProposal);
+
+    void sendOrderCancelledEvent(PolicyProposal policyProposal);
 }

@@ -15,14 +15,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Configuração do Kafka habilitada apenas no profile 'fraud-consumer'.
+ * Configuração do Kafka habilitada apenas no profile 'order-consumer'.
  * <p>
- * Esta configuração garante que a conexão com o Kafka só seja estabelecida
- * quando o contexto fraud-consumer estiver ativo, evitando tentativas de
- * conexão desnecessárias no profile 'api'.
+ * Esta configuração garante que a conexão com o Kafka seja estabelecida
+ * apenas no contexto order-consumer (para publicação de eventos de aprovação e cancelamento).
  */
 @Slf4j
-@Profile("fraud-consumer")
+@Profile("order-consumer")
 @Configuration
 public class KafkaConfig {
 
@@ -37,7 +36,7 @@ public class KafkaConfig {
 
     @Bean
     public ProducerFactory<String, String> producerFactory() {
-        log.info("Configurando Kafka Producer para o profile fraud-consumer. Bootstrap servers: {}", bootstrapServers);
+        log.info("Configurando Kafka Producer para o profile order-consumer. Bootstrap servers: {}", bootstrapServers);
 
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -51,7 +50,7 @@ public class KafkaConfig {
 
     @Bean
     public KafkaTemplate<String, String> kafkaTemplate() {
-        log.info("Criando KafkaTemplate para o profile fraud-consumer");
+        log.info("Criando KafkaTemplate para o profile order-consumer");
         return new KafkaTemplate<>(producerFactory());
     }
 }

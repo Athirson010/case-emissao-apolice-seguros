@@ -15,19 +15,19 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Queue fraudQueue(
-            @Value("${rabbitmq.queues.fraud}") String queue) {
+    public Queue orderConsumerQueue(
+            @Value("${rabbitmq.queues.order-consumer}") String queue) {
         return QueueBuilder.durable(queue).build();
     }
 
     @Bean
-    public Binding fraudBinding(
-            Queue fraudQueue,
+    public Binding orderConsumerBinding(
+            Queue orderConsumerQueue,
             TopicExchange orderIntegrationExchange,
-            @Value("${rabbitmq.routing-keys.fraud}") String routingKey) {
+            @Value("${rabbitmq.routing-keys.order}") String routingKey) {
 
         return BindingBuilder
-                .bind(fraudQueue)
+                .bind(orderConsumerQueue)
                 .to(orderIntegrationExchange)
                 .with(routingKey);
     }

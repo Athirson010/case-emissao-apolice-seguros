@@ -12,7 +12,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Slf4j
-@Profile("fraud-consumer")
+@Profile("order-consumer")
 @Component
 @RequiredArgsConstructor
 public class OrderKafkaProducer implements OrderEventPort {
@@ -50,6 +50,38 @@ public class OrderKafkaProducer implements OrderEventPort {
             log.error("Erro ao serializar proposta de apólice para JSON. ID: {}",
                     policyProposal.getId().asString(), e);
             throw new RuntimeException("Falha ao serializar proposta de apólice para JSON", e);
+        }
+    }
+
+    @Override
+    public void sendOrderCancelledEvent(PolicyProposal policyProposal) {
+        try {
+            log.info("Enviando evento de cancelamento de apólice para Kafka. ID: {}, Status: {}",
+                    policyProposal.getId().asString(),
+                    policyProposal.getStatus());
+
+            String message = objectMapper.writeValueAsString(policyProposal);
+            String key = policyProposal.getId().asString();
+
+            kafkaTemplate.send(orderTopic, key, message)
+                    .whenComplete((result, ex) -> {
+                        if (ex == null) {
+                            log.info("Evento de cancelamento enviado com sucesso para tópico: {}. ID: {}, Partition: {}, Offset: {}",
+                                    orderTopic,
+                                    policyProposal.getId().asString(),
+                                    result.getRecordMetadata().partition(),
+                                    result.getRecordMetadata().offset());
+                            log.info("Consumidores de pagamentos e seguros podem processar este evento de cancelamento");
+                        } else {
+                            log.error("Erro ao enviar evento de cancelamento para Kafka. ID: {}",
+                                    policyProposal.getId().asString(), ex);
+                        }
+                    });
+
+        } catch (JsonProcessingException e) {
+            log.error("Erro ao serializar proposta de apólice cancelada para JSON. ID: {}",
+                    policyProposal.getId().asString(), e);
+            throw new RuntimeException("Falha ao serializar proposta de apólice cancelada para JSON", e);
         }
     }
 }

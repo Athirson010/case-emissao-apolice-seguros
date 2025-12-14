@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Slf4j
-@Profile("fraud-consumer")
+@Profile("order-consumer")
 @Component
 @RequiredArgsConstructor
 public class FraudApiAdapter implements FraudCheckPort {

@@ -6,6 +6,7 @@ import io.github.athirson010.core.port.out.FraudCheckPort;
 import io.github.athirson010.core.port.out.OrderEventPort;
 import io.github.athirson010.core.port.out.OrderRepository;
 import io.github.athirson010.core.service.PolicyValidationService;
+import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.model.FraudAnalysisResult;
 import io.github.athirson010.domain.model.PolicyProposal;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +18,10 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 
 @Slf4j
-@Profile("fraud-consumer")
+@Profile("order-consumer")
 @Component
 @RequiredArgsConstructor
-public class FraudQueueConsumer {
+public class OrderQueueConsumer {
 
     private final ObjectMapper objectMapper;
     private final FraudCheckPort fraudCheckPort;
@@ -28,32 +29,56 @@ public class FraudQueueConsumer {
     private final OrderRepository orderRepository;
     private final OrderEventPort orderEventPort;
 
-    @RabbitListener(queues = "${rabbitmq.queues.fraud}")
+    @RabbitListener(queues = "${rabbitmq.queues.order-consumer}")
     public void consumeMessage(String messageBody) {
         try {
-            log.info("Mensagem recebida da fila de fraude (RabbitMQ)");
+            log.info("Mensagem recebida da fila order-service-consumer");
 
             PolicyProposal policyProposal = deserializeMessage(messageBody);
 
-            log.info("Proposta desserializada. PolicyId={}, CustomerId={}",
+            log.info("Proposta desserializada. PolicyId={}, CustomerId={}, Status={}",
                     policyProposal.getId().asString(),
-                    policyProposal.getCustomerId());
+                    policyProposal.getCustomerId(),
+                    policyProposal.getStatus());
 
-            FraudAnalysisResult analysisResult =
-                    fraudCheckPort.analyzeFraud(policyProposal);
-
-            log.info("Análise concluída. PolicyId={}, Classificação={}, Ocorrências={}",
-                    analysisResult.getOrderId(),
-                    analysisResult.getClassification(),
-                    analysisResult.getOccurrences().size());
-
-            processValidation(policyProposal, analysisResult);
+            if (PolicyStatus.RECEIVED.equals(policyProposal.getStatus())) {
+                log.info("Processando inclusão de apólice - iniciando validação de fraude");
+                processInclusion(policyProposal);
+            } else if (PolicyStatus.CANCELED.equals(policyProposal.getStatus())) {
+                log.info("Processando cancelamento de apólice - enviando direto para Kafka");
+                processCancellation(policyProposal);
+            } else {
+                log.warn("Status não reconhecido para processamento: {}. PolicyId={}",
+                        policyProposal.getStatus(),
+                        policyProposal.getId().asString());
+            }
 
         } catch (Exception e) {
-            log.error("Erro ao processar mensagem da fila de fraude", e);
-            throw new RuntimeException("Falha ao processar mensagem da fila de fraude", e);
+            log.error("Erro ao processar mensagem da fila order-service-consumer", e);
+            throw new RuntimeException("Falha ao processar mensagem da fila order-service-consumer", e);
             // RabbitMQ: exception = requeue ou DLQ (dependendo config)
         }
+    }
+
+    private void processInclusion(PolicyProposal policyProposal) {
+        log.info("Iniciando análise de fraude para apólice: {}", policyProposal.getId().asString());
+
+        FraudAnalysisResult analysisResult = fraudCheckPort.analyzeFraud(policyProposal);
+
+        log.info("Análise concluída. PolicyId={}, Classificação={}, Ocorrências={}",
+                analysisResult.getOrderId(),
+                analysisResult.getClassification(),
+                analysisResult.getOccurrences().size());
+
+        processValidation(policyProposal, analysisResult);
+    }
+
+    private void processCancellation(PolicyProposal policyProposal) {
+        log.info("Publicando evento de cancelamento no Kafka para apólice: {}", policyProposal.getId().asString());
+
+        orderEventPort.sendOrderCancelledEvent(policyProposal);
+
+        log.info("Evento de cancelamento publicado com sucesso. PolicyId={}", policyProposal.getId().asString());
     }
 
     private void processValidation(

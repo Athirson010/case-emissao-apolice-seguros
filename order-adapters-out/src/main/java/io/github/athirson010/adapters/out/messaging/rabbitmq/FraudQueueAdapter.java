@@ -23,21 +23,23 @@ public class FraudQueueAdapter implements FraudQueuePort {
     @Value("${rabbitmq.exchanges.order-integration}")
     private String exchange;
 
-    @Value("${rabbitmq.routing-keys.fraud}")
+    @Value("${rabbitmq.routing-keys.order}")
     private String routingKey;
 
     @Override
     public void sendToFraudQueue(PolicyProposal policyProposal) {
         try {
-            log.debug("Enviando proposta de apólice para fila de fraude. PolicyId={}",
-                    policyProposal.getId().asString());
+            log.debug("Enviando proposta de apólice para fila order-service-consumer. PolicyId={}, Status={}",
+                    policyProposal.getId().asString(),
+                    policyProposal.getStatus());
 
             String message = objectMapper.writeValueAsString(policyProposal);
 
             rabbitTemplate.convertAndSend(exchange, routingKey, message);
 
-            log.info("Proposta enviada para fraude com sucesso. PolicyId={}",
-                    policyProposal.getId().asString());
+            log.info("Proposta enviada para order-service-consumer com sucesso. PolicyId={}, Status={}",
+                    policyProposal.getId().asString(),
+                    policyProposal.getStatus());
 
         } catch (JsonProcessingException e) {
             log.error("Erro ao serializar PolicyProposal. PolicyId={}",
@@ -46,7 +48,7 @@ public class FraudQueueAdapter implements FraudQueuePort {
         } catch (Exception e) {
             log.error("Erro ao publicar mensagem no RabbitMQ. PolicyId={}",
                     policyProposal.getId().asString(), e);
-            throw new RuntimeException("Falha ao enviar mensagem para fila de fraude", e);
+            throw new RuntimeException("Falha ao enviar mensagem para fila order-service-consumer", e);
         }
     }
 }

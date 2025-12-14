@@ -58,38 +58,126 @@ A aplicação utiliza **Spring Profiles** para separar contextos e permitir esca
 O projeto está organizado em módulos Maven independentes seguindo os princípios da arquitetura hexagonal:
 
 ```
-├── order-domain/           # Núcleo da aplicação
-│   ├── Entidades de domínio (PolicyProposal)
-│   ├── Value Objects (Money, PolicyRequestId, HistoryEntry)
-│   ├── Enums (PolicyStatus, Category, RiskClassification)
-│   ├── Regras de negócio e validações reutilizáveis
-│   └── Exceções de domínio
+case-emissao-apolice-seguros/
 │
-├── order-core/             # Camada de aplicação
-│   ├── Casos de uso (CreateOrderUseCase)
-│   ├── Portas de entrada (in) - interfaces para adaptadores de entrada
-│   ├── Portas de saída (out) - interfaces para adaptadores de saída
-│   ├── Serviços de aplicação que orquestram o domínio
-│   └── PolicyValidationService - Validação de regras de negócio
+├── order-domain/                          # Camada de Domínio (Núcleo da aplicação)
+│   └── src/main/java/
+│       └── io/github/athirson010/domain/
+│           ├── enums/                     # Enumerações de domínio
+│           │   ├── Category.java          # Categorias de seguro (AUTO, VIDA, RESIDENCIAL...)
+│           │   ├── PolicyStatus.java      # Estados da apólice (RECEIVED, VALIDATED, APPROVED...)
+│           │   ├── RiskClassification.java # Classificação de risco (REGULAR, HIGH_RISK...)
+│           │   ├── PaymentMethod.java     # Métodos de pagamento (CREDIT_CARD, PIX, BOLETO)
+│           │   ├── SalesChannel.java      # Canais de venda
+│           │   └── OccurrenceType.java    # Tipos de ocorrência de fraude
+│           ├── exception/                 # Exceções de domínio
+│           │   ├── DomainException.java
+│           │   └── InvalidTransitionException.java
+│           ├── model/                     # Entidades e Value Objects
+│           │   ├── PolicyProposal.java    # Agregado raiz - Proposta de apólice
+│           │   ├── PolicyProposalId.java  # Value Object - ID da proposta
+│           │   ├── Money.java             # Value Object - Valor monetário
+│           │   ├── HistoryEntry.java      # Value Object - Entrada de histórico
+│           │   ├── FraudAnalysisResult.java # Resultado da análise de fraude
+│           │   └── FraudOccurrence.java   # Ocorrência de fraude
+│           ├── rules/                     # Regras de negócio
+│           │   └── (Validações de limites por categoria e risco)
+│           └── service/                   # Serviços de domínio
 │
-├── order-adapters-in/      # Adaptadores de entrada
-│   ├── Controllers REST (@Profile("api"))
-│   ├── SQS Consumer (@Profile("fraud-consumer"))
-│   ├── DTOs de request/response
-│   └── Mappers (conversão entre DTOs e entidades de domínio)
+├── order-core/                            # Camada de Aplicação
+│   └── src/main/java/
+│       └── io/github/athirson010/core/
+│           ├── port/                      # Portas (interfaces)
+│           │   ├── in/                    # Portas de entrada
+│           │   │   └── CreateOrderUseCase.java  # Caso de uso de criação
+│           │   └── out/                   # Portas de saída
+│           │       ├── OrderRepository.java     # Repositório de apólices
+│           │       ├── FraudQueuePort.java      # Porta para fila de fraude
+│           │       ├── FraudCheckPort.java      # Porta para API de fraude
+│           │       ├── OrderEventPort.java      # Porta para eventos (Kafka)
+│           │       └── NotificationPort.java    # Porta para notificações
+│           └── service/                   # Serviços de aplicação
+│               ├── OrderApplicationService.java # Orquestração de casos de uso
+│               └── PolicyValidationService.java # Validação de regras de negócio
 │
-├── order-adapters-out/     # Adaptadores de saída
-│   ├── Implementação de persistência (MongoDB)
-│   ├── SQS Producer (@Profile("api"))
-│   ├── Kafka Producer (@Profile("fraud-consumer"))
-│   ├── Integração com APIs externas (fraude - mock)
-│   └── Mappers de persistência (conversão entre domínio e documentos)
+├── order-adapters-in/                     # Adaptadores de Entrada
+│   └── src/main/java/
+│       └── io/github/athirson010/adapters/in/
+│           ├── web/                       # Adaptador REST API
+│           │   ├── PolicyRequestController.java  # Controller REST (@Profile("api"))
+│           │   ├── dto/                   # DTOs de request/response
+│           │   │   ├── CreatePolicyRequest.java
+│           │   │   ├── CreatePolicyResponse.java
+│           │   │   ├── CancelPolicyRequest.java
+│           │   │   └── CancelPolicyResponse.java
+│           │   ├── mapper/                # Mapeadores
+│           │   │   └── PolicyRequestMapper.java
+│           │   ├── exception/             # Tratamento de exceções
+│           │   │   ├── GlobalExceptionHandler.java
+│           │   │   └── ErrorResponse.java
+│           │   └── validation/            # Validações customizadas
+│           │       ├── annotation/        # Anotações de validação
+│           │       │   └── ValidCoverages.java
+│           │       └── validator/         # Validadores
+│           └── messaging/                 # Adaptador de Mensageria
+│               └── rabbitmq/              # Consumer SQS
+│                   └── FraudQueueConsumer.java  # (@Profile("fraud-consumer"))
 │
-└── order-application/      # Inicialização
-    ├── Configuração Spring Boot
-    ├── KafkaConfig (@Profile("fraud-consumer"))
-    ├── Application properties (unificado)
-    └── Testes de arquitetura (ArchUnit)
+├── order-adapters-out/                    # Adaptadores de Saída
+│   └── src/main/java/
+│       └── io/github/athirson010/adapters/out/
+│           ├── persistence/               # Adaptador de Persistência
+│           │   └── mongo/                 # MongoDB
+│           │       ├── document/          # Documentos MongoDB
+│           │       │   ├── PolicyProposalDocument.java
+│           │       │   ├── AddressEntity.java
+│           │       │   ├── AssistanceEntity.java
+│           │       │   ├── AutoDataEntity.java
+│           │       │   └── (outros documentos...)
+│           │       ├── enums/             # Enums para persistência
+│           │       ├── mapper/            # Mapeadores de persistência
+│           │       │   └── PolicyProposalDocumentMapper.java
+│           │       └── repository/        # Repositórios MongoDB
+│           │           └── PolicyProposalMongoRepository.java
+│           ├── messaging/                 # Adaptadores de Mensageria
+│           │   ├── rabbitmq/              # SQS
+│           │   │   └── FraudQueueAdapter.java  # Producer SQS (@Profile("api"))
+│           │   ├── kafka/                 # Kafka
+│           │   │   └── OrderKafkaProducer.java # Producer Kafka (@Profile("fraud-consumer"))
+│           │   └── sns/                   # SNS
+│           │       └── OrderSnsAdapter.java
+│           └── fraud/                     # Adaptador API de Fraude
+│               ├── FraudApiAdapter.java   # Cliente da API de fraude (mock)
+│               ├── dto/                   # DTOs da API de fraude
+│               │   ├── FraudAnalysisResponseDto.java
+│               │   └── FraudOccurrenceDto.java
+│               └── mapper/                # Mapeadores
+│                   └── FraudAnalysisMapper.java
+│
+├── order-application/                     # Módulo de Inicialização
+│   └── src/main/
+│       ├── java/
+│       │   └── io/github/athirson010/application/
+│       │       ├── OrderApplication.java  # Classe principal Spring Boot
+│       │       └── config/                # Configurações
+│       │           ├── JacksonConfig.java
+│       │           ├── KafkaConfig.java   # (@Profile("fraud-consumer"))
+│       │           ├── RabbitMQConfig.java # (SQS Config)
+│       │           └── OpenApiConfig.java # Swagger/OpenAPI
+│       ├── resources/
+│       │   └── application.yml            # Properties unificado (ambos profiles)
+│       └── test/
+│           └── java/
+│               └── io/github/athirson010/arch/
+│                   └── ArchitectureTest.java  # Testes de arquitetura (ArchUnit)
+│
+├── docs/                                  # Documentação
+│   ├── diagrama.png                       # Diagrama de solução
+│   └── itau-app.jpeg                      # Logo/Imagem
+│
+├── docker-compose.yaml                    # Infraestrutura (MongoDB, Kafka, LocalStack)
+├── pom.xml                                # POM pai do projeto multi-módulo
+└── README.md                              # Este arquivo
 ```
 
 ## 🔄 Fluxo de Processamento Completo

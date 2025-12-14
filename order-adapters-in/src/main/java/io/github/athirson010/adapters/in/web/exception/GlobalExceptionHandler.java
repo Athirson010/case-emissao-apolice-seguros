@@ -1,5 +1,6 @@
 package io.github.athirson010.adapters.in.web.exception;
 
+import io.github.athirson010.domain.exception.InvalidCancellationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,20 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    @ExceptionHandler(InvalidCancellationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCancellationException(InvalidCancellationException ex) {
+        log.warn("InvalidCancellationException: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(Instant.now().toString())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Cancelamento Inválido")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 
 @Slf4j
-@Profile("fraud-consumer")
+@Profile("order-consumer")
 @Service
 public class PolicyValidationService {
 
