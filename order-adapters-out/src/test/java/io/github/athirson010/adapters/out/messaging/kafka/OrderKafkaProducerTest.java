@@ -46,7 +46,7 @@ class OrderKafkaProducerTest {
     private OrderKafkaProducer orderKafkaProducer;
 
     private PolicyProposal policyProposal;
-    private String orderTopic = "order-topic";
+    private final String orderTopic = "order-topic";
 
     @BeforeEach
     void setUp() {
