@@ -44,7 +44,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve criar proposta com status RECEIVED")
-    void shouldCreatePolicyWithReceivedStatus() {
+    void deveCriarPropostaComStatusReceived() {
         // Then
         assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.RECEIVED);
         assertThat(policyProposal.getId()).isNotNull();
@@ -54,7 +54,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve validar proposta com sucesso")
-    void shouldValidateProposalSuccessfully() {
+    void deveValidarPropostaComSucesso() {
         // When
         Instant now = Instant.now();
         policyProposal.validate(now);
@@ -65,24 +65,39 @@ class PolicyProposalTest {
     }
 
     @Test
-    @DisplayName("Deve aprovar proposta após validação")
-    void shouldApproveProposalAfterValidation() {
+    @DisplayName("Deve lançar exceção ao tentar aprovar direto após validação sem passar por PENDING")
+    void deveLancarExcecaoAoTentarAprovarDiretoAposValidacao() {
         // Given
         policyProposal.validate(Instant.now());
 
+        // When/Then
+        assertThatThrownBy(() -> policyProposal.approve(Instant.now()))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("Invalid transition");
+    }
+
+    @Test
+    @DisplayName("Deve aprovar proposta após passar por PENDING e receber confirmações")
+    void deveAprovarPropostaAposPendingEConfirmacoes() {
+        // Given
+        policyProposal.validate(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+
         // When
         Instant now = Instant.now();
-        policyProposal.approve(now);
+        policyProposal.confirmPayment(now);
+        policyProposal.confirmSubscription(now);
 
         // Then
         assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.APPROVED);
         assertThat(policyProposal.getFinishedAt()).isNotNull();
-        assertThat(policyProposal.getHistory()).hasSize(3);
+        assertThat(policyProposal.isPaymentConfirmed()).isTrue();
+        assertThat(policyProposal.isSubscriptionConfirmed()).isTrue();
     }
 
     @Test
     @DisplayName("Deve rejeitar proposta após validação")
-    void shouldRejectProposalAfterValidation() {
+    void deveRejeitarPropostaAposValidacao() {
         // Given
         policyProposal.validate(Instant.now());
 
@@ -98,7 +113,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve cancelar proposta com sucesso")
-    void shouldCancelProposalSuccessfully() {
+    void deveCancelarPropostaComSucesso() {
         // When
         Instant now = Instant.now();
         policyProposal.cancel("Cliente solicitou cancelamento", now);
@@ -111,7 +126,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve lançar exceção ao tentar validar proposta cancelada")
-    void shouldThrowExceptionWhenValidatingCancelledProposal() {
+    void deveLancarExcecaoAoValidarPropostaCancelada() {
         // Given
         policyProposal.cancel("Cancelado", Instant.now());
 
@@ -123,7 +138,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve lançar exceção ao tentar aprovar sem validar")
-    void shouldThrowExceptionWhenApprovingWithoutValidation() {
+    void deveLancarExcecaoAoAprovarSemValidacao() {
         // When/Then
         assertThatThrownBy(() -> policyProposal.approve(Instant.now()))
                 .isInstanceOf(InvalidTransitionException.class)
@@ -132,7 +147,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve lançar exceção ao tentar rejeitar sem validar")
-    void shouldThrowExceptionWhenRejectingWithoutValidation() {
+    void deveLancarExcecaoAoRejeitarSemValidacao() {
         // When/Then
         assertThatThrownBy(() -> policyProposal.reject("Motivo", Instant.now()))
                 .isInstanceOf(InvalidTransitionException.class)
@@ -140,37 +155,40 @@ class PolicyProposalTest {
     }
 
     @Test
-    @DisplayName("Deve permitir cancelamento de proposta aprovada")
-    void shouldAllowCancellingApprovedProposal() {
+    @DisplayName("Não deve permitir cancelamento de proposta aprovada")
+    void naoDevePermitirCancelamentoDePropstaAprovada() {
         // Given
         policyProposal.validate(Instant.now());
-        policyProposal.approve(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+        policyProposal.confirmPayment(Instant.now());
+        policyProposal.confirmSubscription(Instant.now());
 
-        // When
-        policyProposal.cancel("Motivo", Instant.now());
-
-        // Then
-        assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.CANCELED);
-        assertThat(policyProposal.getHistory()).hasSize(4);
+        // When/Then
+        assertThatThrownBy(() -> policyProposal.cancel("Motivo", Instant.now()))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("Cannot cancel policy proposal in final state");
     }
 
     @Test
-    @DisplayName("Deve registrar histórico de transições")
-    void shouldRecordTransitionHistory() {
+    @DisplayName("Deve registrar histórico de transições completo")
+    void deveRegistrarHistoricoDeTransicoes() {
         // When
         policyProposal.validate(Instant.now());
-        policyProposal.approve(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+        policyProposal.confirmPayment(Instant.now());
+        policyProposal.confirmSubscription(Instant.now());
 
         // Then
-        assertThat(policyProposal.getHistory()).hasSize(3);
+        assertThat(policyProposal.getHistory()).hasSize(4);
         assertThat(policyProposal.getHistory().get(0).status()).isEqualTo(PolicyStatus.RECEIVED);
         assertThat(policyProposal.getHistory().get(1).status()).isEqualTo(PolicyStatus.VALIDATED);
-        assertThat(policyProposal.getHistory().get(2).status()).isEqualTo(PolicyStatus.APPROVED);
+        assertThat(policyProposal.getHistory().get(2).status()).isEqualTo(PolicyStatus.PENDING);
+        assertThat(policyProposal.getHistory().get(3).status()).isEqualTo(PolicyStatus.APPROVED);
     }
 
     @Test
     @DisplayName("Deve manter dados imutáveis após criação")
-    void shouldKeepDataImmutableAfterCreation() {
+    void deveManterlDadosImutaveisAposCriacao() {
         // Then
         assertThat(policyProposal.getCategory()).isEqualTo(Category.AUTO);
         assertThat(policyProposal.getPaymentMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
@@ -182,7 +200,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve permitir cancelamento de proposta validada")
-    void shouldAllowCancellingValidatedProposal() {
+    void devePermitirCancelamentoDePropstaValidada() {
         // Given
         policyProposal.validate(Instant.now());
 
@@ -196,7 +214,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve incluir motivo no histórico ao rejeitar")
-    void shouldIncludeReasonInHistoryWhenRejecting() {
+    void deveIncluirMotivoNoHistoricoAoRejeitar() {
         // Given
         policyProposal.validate(Instant.now());
 
@@ -211,7 +229,7 @@ class PolicyProposalTest {
 
     @Test
     @DisplayName("Deve incluir motivo no histórico ao cancelar")
-    void shouldIncludeReasonInHistoryWhenCancelling() {
+    void deveIncluirMotivoNoHistoricoAoCancelar() {
         // When
         String reason = "Cliente solicitou cancelamento";
         policyProposal.cancel(reason, Instant.now());
@@ -219,5 +237,114 @@ class PolicyProposalTest {
         // Then
         HistoryEntry lastEntry = policyProposal.getHistory().get(policyProposal.getHistory().size() - 1);
         assertThat(lastEntry.reason()).contains(reason);
+    }
+
+    @Test
+    @DisplayName("Deve marcar proposta como PENDING após validação")
+    void deveMarcarPropostaComoPendingAposValidacao() {
+        // Given
+        policyProposal.validate(Instant.now());
+
+        // When
+        policyProposal.markAsPending(Instant.now());
+
+        // Then
+        assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.PENDING);
+        assertThat(policyProposal.isPaymentConfirmed()).isFalse();
+        assertThat(policyProposal.isSubscriptionConfirmed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Deve confirmar pagamento em estado PENDING")
+    void deveConfirmarPagamentoEmEstadoPending() {
+        // Given
+        policyProposal.validate(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+
+        // When
+        policyProposal.confirmPayment(Instant.now());
+
+        // Then
+        assertThat(policyProposal.isPaymentConfirmed()).isTrue();
+        assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.PENDING); // Ainda PENDING até subscrição
+    }
+
+    @Test
+    @DisplayName("Deve confirmar subscrição em estado PENDING")
+    void deveConfirmarSubscricaoEmEstadoPending() {
+        // Given
+        policyProposal.validate(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+
+        // When
+        policyProposal.confirmSubscription(Instant.now());
+
+        // Then
+        assertThat(policyProposal.isSubscriptionConfirmed()).isTrue();
+        assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.PENDING); // Ainda PENDING até pagamento
+    }
+
+    @Test
+    @DisplayName("Deve aprovar automaticamente quando ambas confirmações forem recebidas")
+    void deveAprovarAutomaticamenteQuandoAmbasConfirmacoesForemRecebidas() {
+        // Given
+        policyProposal.validate(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+        policyProposal.confirmPayment(Instant.now());
+
+        // When
+        policyProposal.confirmSubscription(Instant.now());
+
+        // Then
+        assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.APPROVED);
+        assertThat(policyProposal.isPaymentConfirmed()).isTrue();
+        assertThat(policyProposal.isSubscriptionConfirmed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Deve lançar exceção ao confirmar pagamento fora do estado PENDING")
+    void deveLancarExcecaoAoConfirmarPagamentoForaDoEstadoPending() {
+        // When/Then
+        assertThatThrownBy(() -> policyProposal.confirmPayment(Instant.now()))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("Cannot confirm payment");
+    }
+
+    @Test
+    @DisplayName("Deve lançar exceção ao confirmar subscrição fora do estado PENDING")
+    void deveLancarExcecaoAoConfirmarSubscricaoForaDoEstadoPending() {
+        // When/Then
+        assertThatThrownBy(() -> policyProposal.confirmSubscription(Instant.now()))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("Cannot confirm subscription");
+    }
+
+    @Test
+    @DisplayName("Deve permitir cancelamento de proposta PENDING")
+    void devePermitirCancelamentoDePropstaPending() {
+        // Given
+        policyProposal.validate(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+
+        // When
+        policyProposal.cancel("Cliente desistiu", Instant.now());
+
+        // Then
+        assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.CANCELED);
+    }
+
+    @Test
+    @DisplayName("Deve rejeitar proposta PENDING se necessário")
+    void deveRejeitarPropostaPendingSeNecessario() {
+        // Given
+        policyProposal.validate(Instant.now());
+        policyProposal.markAsPending(Instant.now());
+
+        // When
+        policyProposal.reject("Pagamento negado", Instant.now());
+
+        // Then
+        assertThat(policyProposal.getStatus()).isEqualTo(PolicyStatus.REJECTED);
+        assertThat(policyProposal.getFinishedAt()).isNotNull();
     }
 }

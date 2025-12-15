@@ -1,6 +1,6 @@
 package io.github.athirson010.componenttest.entrada.api;
 
-import io.github.athirson010.componenttest.config.BaseComponentTest;
+import io.github.athirson010.componenttest.BaseComponentTest;
 import io.github.athirson010.core.port.in.CreateOrderUseCase;
 import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.model.PolicyProposal;
@@ -14,43 +14,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Testes de Componente - Entrada via API REST
- *
- * Cenário: Validação de Regras de Negócio por Tipo de Cliente
- * Entrada: HTTP POST /policies
- *
- * Valida as regras de capital segurado conforme classificação do cliente:
- *
- * CLIENTE REGULAR:
- * - BUS-REG-01: VIDA/RESIDENCIAL ≤ 500.000,00
- * - BUS-REG-02: AUTO ≤ 350.000,00
- * - BUS-REG-03: OUTROS ≤ 255.000,00
- *
- * CLIENTE ALTO RISCO:
- * - BUS-HR-01: AUTO ≤ 250.000,00
- * - BUS-HR-02: RESIDENCIAL ≤ 150.000,00
- * - BUS-HR-03: OUTROS ≤ 125.000,00
- *
- * CLIENTE PREFERENCIAL:
- * - BUS-PREF-01: VIDA < 800.000,00
- * - BUS-PREF-02: AUTO/RESIDENCIAL < 450.000,00
- * - BUS-PREF-03: OUTROS ≤ 375.000,00
- *
- * CLIENTE SEM INFORMAÇÃO:
- * - BUS-NOINFO-01: VIDA/RESIDENCIAL ≤ 200.000,00
- * - BUS-NOINFO-02: AUTO ≤ 75.000,00
- * - BUS-NOINFO-03: OUTROS ≤ 55.000,00
- */
+@ActiveProfiles({"test", "api"})
 @AutoConfigureMockMvc
 @DisplayName("Entrada API - Regras de Negócio por Tipo de Cliente")
 class RegrasNegocioApiTest extends BaseComponentTest {
@@ -95,8 +70,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
             // When & Then - Deve aceitar
             mockMvc.perform(post("/policies")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requisicao))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requisicao))
                     .andExpect(status().isCreated());
         } else {
             // Mock rejeita a solicitação por exceder limite
@@ -105,8 +80,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
             // When & Then - Deve rejeitar
             mockMvc.perform(post("/policies")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requisicao))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requisicao))
                     .andExpect(status().is4xxClientError());
         }
     }
@@ -131,8 +106,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
             // When & Then
             mockMvc.perform(post("/policies")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requisicao))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requisicao))
                     .andExpect(status().isCreated());
         } else {
             when(createOrderUseCase.createPolicyRequest(any()))
@@ -140,8 +115,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
             // When & Then
             mockMvc.perform(post("/policies")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requisicao))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requisicao))
                     .andExpect(status().is4xxClientError());
         }
     }
@@ -161,8 +136,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
         when(createOrderUseCase.createPolicyRequest(any())).thenReturn(solicitacaoAceita);
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
 
         // Reset para testar caso inválido
@@ -171,8 +146,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
                 .thenThrow(new IllegalArgumentException("Limite excedido"));
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoInvalida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoInvalida))
                 .andExpect(status().is4xxClientError());
     }
 
@@ -195,8 +170,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
         when(createOrderUseCase.createPolicyRequest(any())).thenReturn(solicitacaoAceita);
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
 
         // Invalid
@@ -205,8 +180,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
                 .thenThrow(new IllegalArgumentException("Limite excedido para cliente ALTO RISCO"));
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoInvalida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoInvalida))
                 .andExpect(status().is4xxClientError());
     }
 
@@ -224,8 +199,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
         // When & Then
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
     }
 
@@ -248,8 +223,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
         when(createOrderUseCase.createPolicyRequest(any())).thenReturn(solicitacaoAceita);
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
 
         // Invalid
@@ -258,8 +233,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
                 .thenThrow(new IllegalArgumentException("Deve ser menor que 800.000 para cliente PREFERENCIAL"));
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoInvalida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoInvalida))
                 .andExpect(status().is4xxClientError());
     }
 
@@ -277,8 +252,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
         // When & Then
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
     }
 
@@ -301,8 +276,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
         when(createOrderUseCase.createPolicyRequest(any())).thenReturn(solicitacaoAceita);
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
 
         // Invalid
@@ -311,8 +286,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
                 .thenThrow(new IllegalArgumentException("Limite excedido para cliente SEM INFORMAÇÃO"));
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoInvalida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoInvalida))
                 .andExpect(status().is4xxClientError());
     }
 
@@ -330,8 +305,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
         // When & Then
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
     }
 
@@ -350,8 +325,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
         when(createOrderUseCase.createPolicyRequest(any())).thenReturn(solicitacaoAceita);
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated());
 
         // Invalid
@@ -360,8 +335,8 @@ class RegrasNegocioApiTest extends BaseComponentTest {
                 .thenThrow(new IllegalArgumentException("Limite excedido"));
 
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoInvalida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoInvalida))
                 .andExpect(status().is4xxClientError());
     }
 
@@ -371,17 +346,17 @@ class RegrasNegocioApiTest extends BaseComponentTest {
 
     private String criarRequisicaoApolice(String categoria, String valorSegurado) {
         return String.format("""
-            {
-                "customer_id": "123e4567-e89b-12d3-a456-426614174000",
-                "product_id": "1b2da7cc-b367-4196-8a78-9cfeec21f587",
-                "category": "%s",
-                "sales_channel": "MOBILE",
-                "payment_method": "CREDIT_CARD",
-                "total_monthly_premium_amount": "350.00",
-                "insured_amount": "%s",
-                "coverages": {"Colisão": "%s"},
-                "assistances": ["Guincho 24h"]
-            }
-            """, categoria, valorSegurado, valorSegurado);
+                {
+                    "customer_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "product_id": "1b2da7cc-b367-4196-8a78-9cfeec21f587",
+                    "category": "%s",
+                    "sales_channel": "MOBILE",
+                    "payment_method": "CREDIT_CARD",
+                    "total_monthly_premium_amount": "350.00",
+                    "insured_amount": "%s",
+                    "coverages": {"Colisão": "%s"},
+                    "assistances": ["Guincho 24h"]
+                }
+                """, categoria, valorSegurado, valorSegurado);
     }
 }

@@ -96,13 +96,16 @@ public class OrderQueueConsumer {
         );
 
         if (isValid) {
-            policyProposal.approve(now);
+            policyProposal.markAsPending(now);
 
-            log.info("Policy {} APROVADA. Classificação={}",
+            log.info("Policy {} marcada como PENDING aguardando confirmação de pagamento e subscrição. Classificação={}",
                     policyProposal.getId().asString(),
                     analysisResult.getClassification());
 
+            orderRepository.save(policyProposal);
+
             orderEventPort.sendOrderApprovedEvent(policyProposal);
+            log.info("Evento de validação aprovada enviado para Kafka. Policy aguardando confirmações.");
 
         } else {
             String reason = String.format(
@@ -116,9 +119,9 @@ public class OrderQueueConsumer {
             log.info("Policy {} REJEITADA. Motivo={}",
                     policyProposal.getId().asString(),
                     reason);
-        }
 
-        orderRepository.save(policyProposal);
+            orderRepository.save(policyProposal);
+        }
 
         log.info("Policy {} persistida com status={}",
                 policyProposal.getId().asString(),

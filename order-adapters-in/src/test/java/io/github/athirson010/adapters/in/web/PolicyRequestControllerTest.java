@@ -5,8 +5,6 @@ import io.github.athirson010.adapters.in.web.dto.CreatePolicyRequest;
 import io.github.athirson010.core.port.in.CreateOrderUseCase;
 import io.github.athirson010.domain.enums.Category;
 import io.github.athirson010.domain.enums.PaymentMethod;
-import io.github.athirson010.domain.enums.PolicyStatus;
-import io.github.athirson010.domain.exception.InvalidCancellationException;
 import io.github.athirson010.domain.model.Money;
 import io.github.athirson010.domain.model.PolicyProposal;
 import io.github.athirson010.domain.model.PolicyProposalId;

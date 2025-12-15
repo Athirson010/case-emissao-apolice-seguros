@@ -35,6 +35,12 @@ public class PolicyProposal {
     private Instant finishedAt;
 
     @Builder.Default
+    private boolean paymentConfirmed = false;
+
+    @Builder.Default
+    private boolean subscriptionConfirmed = false;
+
+    @Builder.Default
     private List<HistoryEntry> history = new ArrayList<>();
 
     public static PolicyProposal create(
@@ -69,7 +75,9 @@ public class PolicyProposal {
     }
 
     public void cancel(String reason, Instant now) {
-        if (this.status == PolicyStatus.CANCELED || this.status == PolicyStatus.REJECTED) {
+        if (this.status == PolicyStatus.CANCELED ||
+                this.status == PolicyStatus.REJECTED ||
+                this.status == PolicyStatus.APPROVED) {
             throw new InvalidTransitionException(
                     String.format("Cannot cancel policy proposal in final state: %s", this.status)
             );
@@ -90,6 +98,38 @@ public class PolicyProposal {
         validateTransition(PolicyStatus.PENDING);
         this.status = PolicyStatus.PENDING;
         addHistoryEntry(PolicyStatus.PENDING, now, null);
+    }
+
+    public void confirmPayment(Instant now) {
+        if (this.status != PolicyStatus.PENDING) {
+            throw new InvalidTransitionException(
+                    String.format("Cannot confirm payment for policy in status: %s. Must be PENDING.", this.status)
+            );
+        }
+        this.paymentConfirmed = true;
+
+        if (canApprove()) {
+            approve(now);
+        }
+    }
+
+    public void confirmSubscription(Instant now) {
+        if (this.status != PolicyStatus.PENDING) {
+            throw new InvalidTransitionException(
+                    String.format("Cannot confirm subscription for policy in status: %s. Must be PENDING.", this.status)
+            );
+        }
+        this.subscriptionConfirmed = true;
+
+        if (canApprove()) {
+            approve(now);
+        }
+    }
+
+    private boolean canApprove() {
+        return this.status == PolicyStatus.PENDING &&
+                this.paymentConfirmed &&
+                this.subscriptionConfirmed;
     }
 
     public void approve(Instant now) {
@@ -113,8 +153,9 @@ public class PolicyProposal {
 
         boolean isValid = switch (this.status) {
             case RECEIVED -> targetStatus == PolicyStatus.VALIDATED || targetStatus == PolicyStatus.CANCELED;
-            case VALIDATED -> targetStatus == PolicyStatus.APPROVED || targetStatus == PolicyStatus.REJECTED;
-            case PENDING -> targetStatus == PolicyStatus.APPROVED || targetStatus == PolicyStatus.REJECTED;
+            case VALIDATED -> targetStatus == PolicyStatus.PENDING || targetStatus == PolicyStatus.REJECTED;
+            case PENDING ->
+                    targetStatus == PolicyStatus.APPROVED || targetStatus == PolicyStatus.REJECTED || targetStatus == PolicyStatus.PENDING;
             default -> false;
         };
 

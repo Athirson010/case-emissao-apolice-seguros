@@ -75,7 +75,12 @@ public class OrderApplicationService implements CreateOrderUseCase {
             throw new InvalidCancellationException(id.asString(), currentStatus);
         }
 
-        // Permitir cancelamento para: RECEIVED, VALIDATED, APPROVED
+        if (PolicyStatus.APPROVED.equals(currentStatus)) {
+            log.warn("Tentativa de cancelar apólice aprovada. PolicyId={}", id.asString());
+            throw new InvalidCancellationException(id.asString(), currentStatus);
+        }
+
+        // Permitir cancelamento para: RECEIVED, VALIDATED, PENDING
         log.info("Cancelamento permitido para status: {}. Procedendo com cancelamento.", currentStatus);
 
         policyProposal.cancel(reason, Instant.now());

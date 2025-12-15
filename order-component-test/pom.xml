@@ -148,6 +148,11 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.github.athirson010</groupId>
+            <artifactId>order-application</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

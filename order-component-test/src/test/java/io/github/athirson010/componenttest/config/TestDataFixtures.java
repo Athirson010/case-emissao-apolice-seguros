@@ -46,20 +46,20 @@ public class TestDataFixtures {
      */
     public static String createSamplePolicyRequestJson() {
         return """
-            {
-                "customer_id": "%s",
-                "product_id": "%s",
-                "category": "%s",
-                "sales_channel": "%s",
-                "payment_method": "%s",
-                "total_monthly_premium_amount": %.2f,
-                "insured_amount": %.2f,
-                "coverages": {
-                    "%s": %.2f
-                },
-                "assistances": ["%s"]
-            }
-            """.formatted(
+                {
+                    "customer_id": "%s",
+                    "product_id": "%s",
+                    "category": "%s",
+                    "sales_channel": "%s",
+                    "payment_method": "%s",
+                    "total_monthly_premium_amount": %.2f,
+                    "insured_amount": %.2f,
+                    "coverages": {
+                        "%s": %.2f
+                    },
+                    "assistances": ["%s"]
+                }
+                """.formatted(
                 DEFAULT_CUSTOMER_ID,
                 DEFAULT_PRODUCT_ID,
                 CATEGORY_AUTO,
@@ -70,7 +70,7 @@ public class TestDataFixtures {
                 COVERAGE_COLISAO,
                 DEFAULT_INSURED_AMOUNT,
                 ASSISTANCE_GUINCHO
-            );
+        );
     }
 
     public static Map<String, Object> createSamplePolicyRequestMap() {
@@ -102,63 +102,63 @@ public class TestDataFixtures {
 
     public static String createSampleInsuranceResponseJson(String policyNumber) {
         return """
-            {
-                "policy_number": "%s",
-                "status": "APPROVED",
-                "approval_date": "%s",
-                "valid_until": "%s"
-            }
-            """.formatted(
+                {
+                    "policy_number": "%s",
+                    "status": "APPROVED",
+                    "approval_date": "%s",
+                    "valid_until": "%s"
+                }
+                """.formatted(
                 policyNumber,
                 LocalDateTime.now(),
                 LocalDateTime.now().plusYears(1)
-            );
+        );
     }
 
     public static String createSamplePaymentResponseJson(String transactionId) {
         return """
-            {
-                "transaction_id": "%s",
-                "status": "APPROVED",
-                "amount": %.2f,
-                "payment_date": "%s"
-            }
-            """.formatted(
+                {
+                    "transaction_id": "%s",
+                    "status": "APPROVED",
+                    "amount": %.2f,
+                    "payment_date": "%s"
+                }
+                """.formatted(
                 transactionId,
                 DEFAULT_PREMIUM_AMOUNT,
                 LocalDateTime.now()
-            );
+        );
     }
 
     public static String createInvalidPolicyRequestJson() {
         return """
-            {
-                "customer_id": "",
-                "product_id": null,
-                "category": "INVALID_CATEGORY"
-            }
-            """;
+                {
+                    "customer_id": "",
+                    "product_id": null,
+                    "category": "INVALID_CATEGORY"
+                }
+                """;
     }
 
     public static String createPolicyRequestWithInvalidAmountsJson() {
         return """
-            {
-                "customer_id": "%s",
-                "product_id": "%s",
-                "category": "%s",
-                "sales_channel": "%s",
-                "payment_method": "%s",
-                "total_monthly_premium_amount": -100.00,
-                "insured_amount": 0.00,
-                "coverages": {},
-                "assistances": []
-            }
-            """.formatted(
+                {
+                    "customer_id": "%s",
+                    "product_id": "%s",
+                    "category": "%s",
+                    "sales_channel": "%s",
+                    "payment_method": "%s",
+                    "total_monthly_premium_amount": -100.00,
+                    "insured_amount": 0.00,
+                    "coverages": {},
+                    "assistances": []
+                }
+                """.formatted(
                 DEFAULT_CUSTOMER_ID,
                 DEFAULT_PRODUCT_ID,
                 CATEGORY_AUTO,
                 CHANNEL_MOBILE,
                 PAYMENT_CREDIT_CARD
-            );
+        );
     }
 }

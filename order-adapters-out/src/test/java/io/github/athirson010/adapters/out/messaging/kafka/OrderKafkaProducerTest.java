@@ -7,7 +7,6 @@ import io.github.athirson010.domain.enums.PaymentMethod;
 import io.github.athirson010.domain.enums.SalesChannel;
 import io.github.athirson010.domain.model.Money;
 import io.github.athirson010.domain.model.PolicyProposal;
-import io.github.athirson010.domain.model.PolicyProposalId;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -111,7 +110,8 @@ class OrderKafkaProducerTest {
     void shouldThrowExceptionWhenSerializationFailsOnApprove() throws JsonProcessingException {
         // Given
         when(objectMapper.writeValueAsString(policyProposal))
-                .thenThrow(new JsonProcessingException("Erro de serialização") {});
+                .thenThrow(new JsonProcessingException("Erro de serialização") {
+                });
 
         // When/Then
         assertThatThrownBy(() -> orderKafkaProducer.sendOrderApprovedEvent(policyProposal))
@@ -128,7 +128,8 @@ class OrderKafkaProducerTest {
         // Given
         policyProposal.cancel("Motivo", java.time.Instant.now());
         when(objectMapper.writeValueAsString(policyProposal))
-                .thenThrow(new JsonProcessingException("Erro de serialização") {});
+                .thenThrow(new JsonProcessingException("Erro de serialização") {
+                });
 
         // When/Then
         assertThatThrownBy(() -> orderKafkaProducer.sendOrderCancelledEvent(policyProposal))

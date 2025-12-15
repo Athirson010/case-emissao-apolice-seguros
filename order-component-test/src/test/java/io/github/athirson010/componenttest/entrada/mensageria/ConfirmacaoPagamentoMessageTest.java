@@ -1,30 +1,29 @@
 package io.github.athirson010.componenttest.entrada.mensageria;
 
-import io.github.athirson010.componenttest.config.BaseComponentTest;
+import io.github.athirson010.adapters.in.messaging.rabbitmq.PaymentConfirmationConsumer;
+import io.github.athirson010.componenttest.BaseComponentTest;
+import io.github.athirson010.domain.enums.PolicyStatus;
+import io.github.athirson010.domain.model.PolicyProposal;
 import io.github.athirson010.domain.model.PolicyProposalId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ActiveProfiles;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.time.Instant;
+import java.util.Optional;
 
-/**
- * Testes de Componente - Entrada via Mensageria
- *
- * Cenário: Validação de Formato de Mensagem de Pagamento
- * Entrada: Mensagem Kafka/RabbitMQ do Sistema de Pagamento
- *
- * Valida:
- * - Formato correto da mensagem de confirmação de pagamento
- * - Presença de campos obrigatórios
- * - Validação de status de pagamento
- * - Estrutura JSON esperada
- *
- * Nota: Estes testes validam o FORMATO das mensagens.
- * O processamento real seria feito por consumers Kafka/RabbitMQ específicos.
- */
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ActiveProfiles({"test", "order-consumer"})
 @DisplayName("Entrada Mensageria - Confirmação de Pagamento")
 class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
+
+    @Autowired
+    private PaymentConfirmationConsumer paymentConfirmationConsumer;
 
     private PolicyProposalId idSolicitacao;
 
@@ -33,186 +32,158 @@ class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
     public void setUp() {
         super.setUp();
         idSolicitacao = PolicyProposalId.generate();
+
+        // Configurar comportamento padrão do repository
+        when(orderRepository.save(any(PolicyProposal.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
-    @DisplayName("Mensagem de pagamento deve conter campos obrigatórios")
-    void mensagemDePagamentoDeveConterCamposObrigatorios() {
-        // Given - Mensagem de pagamento aprovado
+    @DisplayName("Deve processar pagamento aprovado e atualizar status para APPROVED")
+    void deveProcessarPagamentoAprovadoEAtualizarStatus() {
+        // Given - Proposta em estado PENDING
+        PolicyProposal propostaPending = PolicyProposal.builder()
+                .id(idSolicitacao)
+                .status(PolicyStatus.PENDING)
+                .createdAt(Instant.now())
+                .build();
+
+        when(orderRepository.findById(any()))
+                .thenReturn(Optional.of(propostaPending));
+
         String mensagemPagamento = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "APPROVED",
-                "transaction_id": "TXN-123456789",
-                "amount": "350.00",
-                "payment_method": "CREDIT_CARD",
-                "payment_timestamp": "2024-01-15T10:45:00Z"
-            }
-            """, idSolicitacao.asString());
+                {
+                    "policy_request_id": "%s",
+                    "payment_status": "APPROVED",
+                    "transaction_id": "TXN-123456789",
+                    "amount": "350.00",
+                    "payment_method": "CREDIT_CARD",
+                    "payment_timestamp": "2024-01-15T10:45:00Z"
+                }
+                """, idSolicitacao.asString());
 
-        // When & Then - Validar campos obrigatórios
-        assertTrue(mensagemPagamento.contains("policy_request_id"));
-        assertTrue(mensagemPagamento.contains("payment_status"));
-        assertTrue(mensagemPagamento.contains(idSolicitacao.asString()));
+        // When - Consumer processa mensagem
+        paymentConfirmationConsumer.consumePaymentConfirmation(mensagemPagamento);
+
+        // Then - Verifica que repository foi consultado e atualizado
+        verify(orderRepository, times(1)).findById(idSolicitacao);
+        verify(orderRepository, times(1)).save(any(PolicyProposal.class));
     }
 
     @Test
-    @DisplayName("Mensagem de pagamento aprovado deve ter status APPROVED")
-    void mensagemDePagamentoAprovadoDeveTerStatusApproved() {
-        // Given
+    @DisplayName("Deve processar pagamento rejeitado e atualizar status para REJECTED")
+    void deveProcessarPagamentoRejeitadoEAtualizarStatus() {
+        // Given - Proposta em estado PENDING
+        PolicyProposal propostaPending = PolicyProposal.builder()
+                .id(idSolicitacao)
+                .status(PolicyStatus.PENDING)
+                .createdAt(Instant.now())
+                .build();
+
+        when(orderRepository.findById(any()))
+                .thenReturn(Optional.of(propostaPending));
+
         String mensagemPagamento = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "APPROVED",
-                "transaction_id": "TXN-123456789"
-            }
-            """, idSolicitacao.asString());
+                {
+                    "policy_request_id": "%s",
+                    "payment_status": "REJECTED",
+                    "rejection_reason": "Cartão sem limite",
+                    "payment_timestamp": "2024-01-15T10:45:00Z"
+                }
+                """, idSolicitacao.asString());
 
-        // When & Then
-        assertTrue(mensagemPagamento.contains("\"payment_status\": \"APPROVED\""));
-        assertTrue(mensagemPagamento.contains("transaction_id"));
+        // When - Consumer processa mensagem
+        paymentConfirmationConsumer.consumePaymentConfirmation(mensagemPagamento);
+
+        // Then - Verifica que repository foi consultado e atualizado
+        verify(orderRepository, times(1)).findById(idSolicitacao);
+        verify(orderRepository, times(1)).save(any(PolicyProposal.class));
     }
 
     @Test
-    @DisplayName("Mensagem de pagamento rejeitado deve ter status REJECTED")
-    void mensagemDePagamentoRejeitadoDeveTerStatusRejected() {
-        // Given
+    @DisplayName("Deve ignorar pagamento para proposta que não está em PENDING")
+    void deveIgnorarPagamentoParaPropostaNaoPending() {
+        // Given - Proposta em estado RECEIVED (não PENDING)
+        PolicyProposal propostaReceived = PolicyProposal.builder()
+                .id(idSolicitacao)
+                .status(PolicyStatus.RECEIVED)
+                .createdAt(Instant.now())
+                .build();
+
+        when(orderRepository.findById(any()))
+                .thenReturn(Optional.of(propostaReceived));
+
         String mensagemPagamento = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "REJECTED",
-                "rejection_reason": "Cartão sem limite",
-                "payment_timestamp": "2024-01-15T10:45:00Z"
-            }
-            """, idSolicitacao.asString());
+                {
+                    "policy_request_id": "%s",
+                    "payment_status": "APPROVED",
+                    "transaction_id": "TXN-123456789"
+                }
+                """, idSolicitacao.asString());
 
-        // When & Then
-        assertTrue(mensagemPagamento.contains("\"payment_status\": \"REJECTED\""));
-        assertTrue(mensagemPagamento.contains("rejection_reason"));
-        assertTrue(mensagemPagamento.contains("Cartão sem limite"));
+        // When - Consumer processa mensagem
+        paymentConfirmationConsumer.consumePaymentConfirmation(mensagemPagamento);
+
+        // Then - Repository foi consultado mas NÃO salvou (proposta não estava em PENDING)
+        verify(orderRepository, times(1)).findById(idSolicitacao);
+        verify(orderRepository, never()).save(any(PolicyProposal.class));
     }
 
     @Test
-    @DisplayName("Mensagem sem policy_request_id deve ser inválida")
-    void mensagemSemPolicyRequestIdDeveSerInvalida() {
-        // Given
-        String mensagemInvalida = """
-            {
-                "payment_status": "APPROVED"
-            }
-            """;
+    @DisplayName("Deve lançar exceção para proposta inexistente")
+    void deveLancarExcecaoParaPropostaInexistente() {
+        // Given - Proposta não existe
+        when(orderRepository.findById(any()))
+                .thenReturn(Optional.empty());
 
-        // When & Then
-        assertFalse(mensagemInvalida.contains("policy_request_id"));
-    }
-
-    @Test
-    @DisplayName("Mensagem aprovada deve conter transaction_id")
-    void mensagemAprovadaDeveConterTransactionId() {
-        // Given
         String mensagemPagamento = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "APPROVED",
-                "transaction_id": "TXN-987654321",
-                "amount": "350.00"
-            }
-            """, idSolicitacao.asString());
+                {
+                    "policy_request_id": "%s",
+                    "payment_status": "APPROVED",
+                    "transaction_id": "TXN-123456789"
+                }
+                """, idSolicitacao.asString());
 
-        // When & Then
-        assertTrue(mensagemPagamento.contains("transaction_id"));
-        assertTrue(mensagemPagamento.contains("TXN-987654321"));
-        assertTrue(mensagemPagamento.contains("amount"));
+        // When & Then - Deve lançar exceção
+        assertThrows(RuntimeException.class, () -> {
+            paymentConfirmationConsumer.consumePaymentConfirmation(mensagemPagamento);
+        });
+
+        // Verify - Repository foi consultado mas não salvou
+        verify(orderRepository, times(1)).findById(idSolicitacao);
+        verify(orderRepository, never()).save(any(PolicyProposal.class));
     }
 
     @Test
-    @DisplayName("Mensagem deve suportar diferentes métodos de pagamento")
-    void mensagemDeveSuportarDiferentesMetodosDePagamento() {
-        // Given - Diferentes métodos de pagamento
+    @DisplayName("Deve processar pagamentos com diferentes métodos de pagamento")
+    void deveProcessarPagamentosComDiferentesMetodos() {
+        // Given - Proposta em estado PENDING
+        PolicyProposal propostaPending = PolicyProposal.builder()
+                .id(idSolicitacao)
+                .status(PolicyStatus.PENDING)
+                .createdAt(Instant.now())
+                .build();
+
+        when(orderRepository.findById(any()))
+                .thenReturn(Optional.of(propostaPending));
+
         String[] metodos = {"CREDIT_CARD", "DEBIT_CARD", "PIX", "BOLETO"};
 
         for (String metodo : metodos) {
             String mensagem = String.format("""
-                {
-                    "policy_request_id": "%s",
-                    "payment_status": "APPROVED",
-                    "payment_method": "%s"
-                }
-                """, idSolicitacao.asString(), metodo);
+                    {
+                        "policy_request_id": "%s",
+                        "payment_status": "APPROVED",
+                        "payment_method": "%s",
+                        "transaction_id": "TXN-123"
+                    }
+                    """, idSolicitacao.asString(), metodo);
 
-            // When & Then
-            assertTrue(mensagem.contains("payment_method"));
-            assertTrue(mensagem.contains(metodo));
+            // When - Consumer processa mensagem
+            paymentConfirmationConsumer.consumePaymentConfirmation(mensagem);
+
+            // Then - Verifica que foi processado
+            verify(orderRepository, atLeastOnce()).findById(idSolicitacao);
         }
-    }
-
-    @Test
-    @DisplayName("Mensagem rejeitada deve incluir motivo da rejeição")
-    void mensagemRejeitadaDeveIncluirMotivoDaRejeicao() {
-        // Given
-        String mensagemRejeitada = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "REJECTED",
-                "rejection_reason": "Saldo insuficiente"
-            }
-            """, idSolicitacao.asString());
-
-        // When & Then
-        assertTrue(mensagemRejeitada.contains("rejection_reason"));
-        assertTrue(mensagemRejeitada.contains("Saldo insuficiente"));
-    }
-
-    @Test
-    @DisplayName("Mensagem deve ter formato JSON válido")
-    void mensagemDeveTerFormatoJsonValido() {
-        // Given
-        String mensagem = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "APPROVED",
-                "transaction_id": "TXN-123",
-                "amount": "350.00"
-            }
-            """, idSolicitacao.asString());
-
-        // When & Then
-        assertTrue(mensagem.trim().startsWith("{"));
-        assertTrue(mensagem.trim().endsWith("}"));
-        assertTrue(mensagem.contains("\":"));
-    }
-
-    @Test
-    @DisplayName("Mensagem pode incluir timestamp de processamento")
-    void mensagemPodeIncluirTimestampDeProcessamento() {
-        // Given
-        String mensagem = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "APPROVED",
-                "payment_timestamp": "2024-01-15T10:45:00Z"
-            }
-            """, idSolicitacao.asString());
-
-        // When & Then
-        assertTrue(mensagem.contains("payment_timestamp"));
-        assertTrue(mensagem.contains("2024-01-15T10:45:00Z"));
-    }
-
-    @Test
-    @DisplayName("Mensagem aprovada deve incluir valor do pagamento")
-    void mensagemAprovadaDeveIncluirValorDoPagamento() {
-        // Given
-        String mensagem = String.format("""
-            {
-                "policy_request_id": "%s",
-                "payment_status": "APPROVED",
-                "amount": "350.00"
-            }
-            """, idSolicitacao.asString());
-
-        // When & Then
-        assertTrue(mensagem.contains("amount"));
-        assertTrue(mensagem.contains("350.00"));
     }
 }

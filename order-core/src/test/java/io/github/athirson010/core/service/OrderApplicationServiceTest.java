@@ -19,7 +19,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,7 +65,7 @@ class OrderApplicationServiceTest {
 
     @Test
     @DisplayName("Deve criar proposta de apólice com sucesso")
-    void shouldCreatePolicyRequestSuccessfully() {
+    void deveCriarPropostaDeApoliceComSucesso() {
         // Given
         when(orderRepository.save(any(PolicyProposal.class))).thenReturn(policyProposal);
 
@@ -79,7 +82,7 @@ class OrderApplicationServiceTest {
 
     @Test
     @DisplayName("Deve buscar proposta por ID com sucesso")
-    void shouldFindPolicyRequestById() {
+    void deveBuscarPropostaPorIdComSucesso() {
         // Given
         when(orderRepository.findById(policyId)).thenReturn(Optional.of(policyProposal));
 
@@ -95,7 +98,7 @@ class OrderApplicationServiceTest {
 
     @Test
     @DisplayName("Deve retornar vazio quando proposta não existir")
-    void shouldReturnEmptyWhenPolicyNotFound() {
+    void deveRetornarVazioQuandoPropostaNaoExistir() {
         // Given
         when(orderRepository.findById(policyId)).thenReturn(Optional.empty());
 
@@ -110,7 +113,7 @@ class OrderApplicationServiceTest {
 
     @Test
     @DisplayName("Deve cancelar proposta com status RECEIVED com sucesso")
-    void shouldCancelPolicyWithReceivedStatus() {
+    void deveCancelarPropostaComStatusReceivedComSucesso() {
         // Given
         when(orderRepository.findById(policyId)).thenReturn(Optional.of(policyProposal));
         when(orderRepository.save(any(PolicyProposal.class))).thenReturn(policyProposal);
@@ -129,7 +132,7 @@ class OrderApplicationServiceTest {
 
     @Test
     @DisplayName("Deve lançar exceção ao tentar cancelar proposta já cancelada")
-    void shouldThrowExceptionWhenCancellingAlreadyCancelledPolicy() {
+    void deveLancarExcecaoAoTentarCancelarPropostaJaCancelada() {
         // Given
         policyProposal.cancel("Motivo anterior", java.time.Instant.now());
         when(orderRepository.findById(policyId)).thenReturn(Optional.of(policyProposal));
@@ -146,7 +149,7 @@ class OrderApplicationServiceTest {
 
     @Test
     @DisplayName("Deve lançar exceção ao tentar cancelar proposta rejeitada")
-    void shouldThrowExceptionWhenCancellingRejectedPolicy() {
+    void deveLancarExcecaoAoTentarCancelarPropostaRejeitada() {
         // Given
         policyProposal.validate(java.time.Instant.now());
         policyProposal.reject("Motivo de rejeição", java.time.Instant.now());
@@ -163,29 +166,28 @@ class OrderApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("Deve permitir cancelar proposta aprovada")
-    void shouldAllowCancellingApprovedPolicy() {
+    @DisplayName("Deve lançar exceção ao tentar cancelar proposta aprovada")
+    void deveLancarExcecaoAoTentarCancelarPropostaAprovada() {
         // Given
         policyProposal.validate(java.time.Instant.now());
-        policyProposal.approve(java.time.Instant.now());
+        policyProposal.markAsPending(java.time.Instant.now());
+        policyProposal.confirmPayment(java.time.Instant.now());
+        policyProposal.confirmSubscription(java.time.Instant.now());
         when(orderRepository.findById(policyId)).thenReturn(Optional.of(policyProposal));
-        when(orderRepository.save(any(PolicyProposal.class))).thenReturn(policyProposal);
 
-        // When
-        PolicyProposal result = orderApplicationService.cancelPolicyRequest(policyId, "Cliente solicitou cancelamento");
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.getStatus()).isEqualTo(PolicyStatus.CANCELED);
+        // When/Then
+        assertThatThrownBy(() -> orderApplicationService.cancelPolicyRequest(policyId, "Cliente solicitou cancelamento"))
+                .isInstanceOf(InvalidCancellationException.class)
+                .hasMessageContaining("APPROVED");
 
         verify(orderRepository, times(1)).findById(policyId);
-        verify(orderRepository, times(1)).save(any(PolicyProposal.class));
-        verify(fraudQueuePort, times(1)).sendToFraudQueue(any(PolicyProposal.class));
+        verify(orderRepository, never()).save(any(PolicyProposal.class));
+        verify(fraudQueuePort, never()).sendToFraudQueue(any(PolicyProposal.class));
     }
 
     @Test
     @DisplayName("Deve lançar exceção ao cancelar proposta não encontrada")
-    void shouldThrowExceptionWhenCancellingNonExistentPolicy() {
+    void deveLancarExcecaoAoCancelarPropostaNaoEncontrada() {
         // Given
         when(orderRepository.findById(policyId)).thenReturn(Optional.empty());
 
@@ -200,7 +202,7 @@ class OrderApplicationServiceTest {
 
     @Test
     @DisplayName("Deve buscar proposta por ID do cliente")
-    void shouldFindPolicyByCustomerId() {
+    void deveBuscarPropostaPorIdDoCliente() {
         // Given
         UUID customerId = UUID.randomUUID();
         when(orderRepository.findByCustomerId(customerId)).thenReturn(Optional.of(policyProposal));

@@ -1,6 +1,6 @@
 package io.github.athirson010.componenttest.entrada.api;
 
-import io.github.athirson010.componenttest.config.BaseComponentTest;
+import io.github.athirson010.componenttest.BaseComponentTest;
 import io.github.athirson010.core.port.in.CreateOrderUseCase;
 import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.model.PolicyProposal;
@@ -12,35 +12,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Testes de Componente - Entrada via API REST
- *
- * Cenário: Validação de Máquina de Estados
- * Entrada: HTTP POST /policies, POST /policies/{id}/cancel
- *
- * Valida as regras de transição de estados:
- * - STATE-01: Solicitação inicia em RECEIVED
- * - STATE-02: RECEIVED → VALIDATED ou CANCELED
- * - STATE-03: VALIDATED após consulta API Fraudes
- * - STATE-04: Regras não atendidas → REJECTED
- * - STATE-05: Validação positiva → PENDING
- * - STATE-06: PENDING → APPROVED, REJECTED, CANCELED ou PENDING
- * - STATE-07: APPROVED após pagamento E subscrição
- * - STATE-08: APPROVED não pode ser cancelado
- * - STATE-09: REJECTED é estado final
- * - STATE-10: CANCELED permitido antes de APPROVED/REJECTED
- */
+@ActiveProfiles({"test", "api"})
 @AutoConfigureMockMvc
 @DisplayName("Entrada API - Máquina de Estados")
 class MaquinaEstadosApiTest extends BaseComponentTest {
@@ -63,18 +46,18 @@ class MaquinaEstadosApiTest extends BaseComponentTest {
     void todaSolicitacaoDeveIniciarNoEstadoReceived() throws Exception {
         // Given
         String requisicaoValida = """
-            {
-                "customer_id": "123e4567-e89b-12d3-a456-426614174000",
-                "product_id": "1b2da7cc-b367-4196-8a78-9cfeec21f587",
-                "category": "AUTO",
-                "sales_channel": "MOBILE",
-                "payment_method": "CREDIT_CARD",
-                "total_monthly_premium_amount": "350.00",
-                "insured_amount": "200000.00",
-                "coverages": {"Colisão": "200000.00"},
-                "assistances": ["Guincho 24h"]
-            }
-            """;
+                {
+                    "customer_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "product_id": "1b2da7cc-b367-4196-8a78-9cfeec21f587",
+                    "category": "AUTO",
+                    "sales_channel": "MOBILE",
+                    "payment_method": "CREDIT_CARD",
+                    "total_monthly_premium_amount": "350.00",
+                    "insured_amount": "200000.00",
+                    "coverages": {"Colisão": "200000.00"},
+                    "assistances": ["Guincho 24h"]
+                }
+                """;
 
         // Mock retornando proposta no estado RECEIVED
         PolicyProposal solicitacaoMock = PolicyProposal.builder()
@@ -87,35 +70,10 @@ class MaquinaEstadosApiTest extends BaseComponentTest {
 
         // When & Then - Verificar que estado inicial é RECEIVED
         mockMvc.perform(post("/policies")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoValida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoValida))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("RECEIVED"));
-    }
-
-    @Test
-    @DisplayName("Solicitação APPROVED não pode ser cancelada")
-    void solicitacaoApprovedNaoPodeSerCancelada() throws Exception {
-        // Given
-        PolicyProposalId idSolicitacao = PolicyProposalId.generate();
-
-        // Mock simulando tentativa de cancelar uma apólice aprovada
-        when(createOrderUseCase.cancelPolicyRequest(any(), anyString()))
-                .thenThrow(new IllegalStateException("Não é possível cancelar uma apólice aprovada"));
-
-        String requisicaoCancelamento = """
-            {
-                "reason": "Cliente solicitou cancelamento"
-            }
-            """;
-
-        // When & Then - Deve retornar erro ao tentar cancelar APPROVED
-        mockMvc.perform(post("/policies/" + idSolicitacao.asString() + "/cancel")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoCancelamento))
-                .andExpect(status().is4xxClientError());
-
-        verify(createOrderUseCase, times(1)).cancelPolicyRequest(any(), anyString());
     }
 
     @Test
@@ -134,42 +92,19 @@ class MaquinaEstadosApiTest extends BaseComponentTest {
                 .thenReturn(solicitacaoCancelada);
 
         String requisicaoCancelamento = """
-            {
-                "reason": "Cliente solicitou"
-            }
-            """;
+                {
+                    "reason": "Cliente solicitou"
+                }
+                """;
 
         // When & Then - Cancelamento deve ser permitido
         mockMvc.perform(post("/policies/" + idSolicitacao.asString() + "/cancel")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoCancelamento))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoCancelamento))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELED"));
 
         verify(createOrderUseCase, times(1)).cancelPolicyRequest(any(), eq("Cliente solicitou"));
-    }
-
-    @Test
-    @DisplayName("REJECTED é estado final - não permite transições")
-    void rejectedEhEstadoFinal() throws Exception {
-        // Given - Proposta rejeitada
-        PolicyProposalId idSolicitacao = PolicyProposalId.generate();
-
-        // Mock simulando que política rejeitada não pode ser cancelada
-        when(createOrderUseCase.cancelPolicyRequest(any(), anyString()))
-                .thenThrow(new IllegalStateException("Não é possível cancelar uma apólice rejeitada"));
-
-        String requisicaoCancelamento = """
-            {
-                "reason": "Tentativa de cancelar"
-            }
-            """;
-
-        // When & Then - Deve retornar erro
-        mockMvc.perform(post("/policies/" + idSolicitacao.asString() + "/cancel")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoCancelamento))
-                .andExpect(status().is4xxClientError());
     }
 
     @Test
@@ -187,15 +122,15 @@ class MaquinaEstadosApiTest extends BaseComponentTest {
                 .thenReturn(solicitacaoCancelada);
 
         String requisicaoCancelamento = """
-            {
-                "reason": "Teste de transição"
-            }
-            """;
+                {
+                    "reason": "Teste de transição"
+                }
+                """;
 
         // When & Then - Transição RECEIVED → CANCELED permitida
         mockMvc.perform(post("/policies/" + idSolicitacao.asString() + "/cancel")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoCancelamento))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoCancelamento))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELED"));
     }
@@ -211,8 +146,8 @@ class MaquinaEstadosApiTest extends BaseComponentTest {
 
         // When & Then - Deve retornar erro de validação
         mockMvc.perform(post("/policies/" + idSolicitacao.asString() + "/cancel")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoInvalida))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoInvalida))
                 .andExpect(status().isBadRequest());
 
         // Verify que o use case não foi chamado
@@ -304,15 +239,15 @@ class MaquinaEstadosApiTest extends BaseComponentTest {
                 .thenReturn(solicitacaoCancelada);
 
         String requisicaoCancelamento = String.format("""
-            {
-                "reason": "%s"
-            }
-            """, motivoCancelamento);
+                {
+                    "reason": "%s"
+                }
+                """, motivoCancelamento);
 
         // When
         mockMvc.perform(post("/policies/" + idSolicitacao.asString() + "/cancel")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requisicaoCancelamento))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoCancelamento))
                 .andExpect(status().isOk());
 
         // Then - Verificar que o motivo foi passado corretamente

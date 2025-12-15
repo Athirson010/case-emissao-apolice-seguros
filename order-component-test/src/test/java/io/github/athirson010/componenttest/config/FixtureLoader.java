@@ -5,7 +5,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.Getter;
 import lombok.SneakyThrows;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
@@ -13,7 +12,7 @@ public class FixtureLoader {
 
     @Getter
     private static final ObjectMapper objectMapper = new ObjectMapper()
-        .registerModule(new JavaTimeModule());
+            .registerModule(new JavaTimeModule());
 
     @SneakyThrows
     public static String loadFixtureAsString(String fileName) {
