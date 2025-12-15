@@ -1,0 +1,165 @@
+{
+  "type": "record",
+  "name": "PolicyProposalEvent",
+  "namespace": "io.github.athirson010.gestao.policy_proposal_event.avsc",
+  "doc": "Evento de mudança de estado da proposta de apólice",
+  "fields": [
+    {
+      "name": "proposalId",
+      "type": "string",
+      "doc": "UUID da proposta de apólice"
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "UUID do cliente"
+    },
+    {
+      "name": "productId",
+      "type": "string"
+    },
+
+    {
+      "name": "category",
+      "type": {
+        "type": "enum",
+        "name": "Category",
+        "symbols": [
+          "AUTO",
+          "VIDA",
+          "RESIDENCIAL",
+          "EMPRESARIAL",
+          "OUTROS"
+        ]
+      }
+    },
+
+    {
+      "name": "salesChannel",
+      "type": {
+        "type": "enum",
+        "name": "SalesChannel",
+        "symbols": [
+          "MOBILE",
+          "WEB",
+          "WHATSAPP",
+          "OUTROS"
+        ]
+      }
+    },
+
+    {
+      "name": "paymentMethod",
+      "type": {
+        "type": "enum",
+        "name": "PaymentMethod",
+        "symbols": [
+          "CREDIT_CARD",
+          "DEBIT",
+          "BOLETO",
+          "PIX"
+        ]
+      }
+    },
+
+    {
+      "name": "totalMonthlyPremiumAmount",
+      "type": {
+        "type": "record",
+        "name": "Money",
+        "doc": "Valor monetário com precisão decimal",
+        "fields": [
+          {
+            "name": "amount",
+            "type": {
+              "type": "bytes",
+              "logicalType": "decimal",
+              "precision": 19,
+              "scale": 2
+            }
+          },
+          {
+            "name": "currency",
+            "type": "string"
+          }
+        ]
+      }
+    },
+
+    {
+      "name": "insuredAmount",
+      "type": "Money"
+    },
+
+    {
+      "name": "coverages",
+      "type": {
+        "type": "map",
+        "values": "Money"
+      }
+    },
+
+    {
+      "name": "assistances",
+      "type": {
+        "type": "array",
+        "items": "string"
+      }
+    },
+
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "PolicyStatus",
+        "symbols": [
+          "RECEIVED",
+          "VALIDATED",
+          "PENDING",
+          "APPROVED",
+          "REJECTED",
+          "CANCELED"
+        ]
+      }
+    },
+
+    {
+      "name": "paymentConfirmed",
+      "type": "boolean"
+    },
+
+    {
+      "name": "subscriptionConfirmed",
+      "type": "boolean"
+    },
+
+    {
+      "name": "createdAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+
+    {
+      "name": "finishedAt",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    },
+
+    {
+      "name": "eventAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Momento em que o evento foi emitido"
+    }
+  ]
+}
