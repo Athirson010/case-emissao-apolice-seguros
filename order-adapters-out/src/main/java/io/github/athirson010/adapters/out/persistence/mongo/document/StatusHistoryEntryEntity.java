@@ -12,7 +12,6 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StatusHistoryEntryEntity {
-
     private String status;
     private Instant changedAt;
     private String reason;

@@ -63,31 +63,23 @@ public class PaymentConfirmationConsumer {
 
         Instant now = Instant.now();
 
-        if (event.isApproved()) {
-            log.info("Pagamento APROVADO. PolicyId={}, TransactionId={}",
-                    policyId.asString(),
-                    event.getTransactionId());
+        // Processa a resposta do pagamento (aprovado ou rejeitado)
+        boolean approved = event.isApproved();
+        String rejectionReason = event.getRejectionReason();
 
-            policyProposal.confirmPayment(now);
+        log.info("Processando resposta de PAGAMENTO. PolicyId={}, Status={}, TransactionId={}",
+                policyId.asString(),
+                approved ? "APPROVED" : "REJECTED",
+                event.getTransactionId());
 
-            orderRepository.save(policyProposal);
+        // Nova lógica: só aprova/rejeita quando AMBAS respostas chegarem
+        policyProposal.processPaymentResponse(approved, rejectionReason, now);
 
-            log.info("Confirmação de pagamento processada. PolicyId={}, Status={}",
-                    policyId.asString(),
-                    policyProposal.getStatus());
+        orderRepository.save(policyProposal);
 
-        } else if (event.isRejected()) {
-            log.info("Pagamento REJEITADO. PolicyId={}, Motivo={}",
-                    policyId.asString(),
-                    event.getRejectionReason());
-
-            String reason = String.format("Pagamento rejeitado: %s", event.getRejectionReason());
-            policyProposal.reject(reason, now);
-
-            orderRepository.save(policyProposal);
-
-            log.info("Proposta rejeitada por falha no pagamento. PolicyId={}", policyId.asString());
-        }
+        log.info("Resposta de pagamento processada. PolicyId={}, Status final={}",
+                policyId.asString(),
+                policyProposal.getStatus());
     }
 
     private PaymentConfirmationEvent deserializeMessage(String messageBody)

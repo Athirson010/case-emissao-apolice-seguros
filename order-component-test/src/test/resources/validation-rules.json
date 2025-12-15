@@ -1,141 +1,136 @@
 {
   "metadata": {
-    "document_type": "PDF - Desafio Técnico Software Engineer (Seguradora)",
+    "document_type": "Documentação Consolidada do Desafio Técnico",
     "source_files": [
-      "desafio_software_engineer_seguradora_v2.pdf"
+      "README.md",
+      "validation-rules.json",
+      "order-component-test",
+      "consumers de pagamentos e seguros",
+      "docker-compose.yml (planejado)"
     ],
-    "notes": "Contexto de validação focado explicitamente no ciclo de vida da solicitação de apólice e suas regras de transição de estados, conforme trecho destacado pelo usuário. Este conteúdo deve ser usado como prompt para validar a implementação da aplicação."
+    "notes": "Arquivo único consolidando regras de negócio, arquitetura, testes, mensageria, premissas e pendências conforme solicitado."
   },
   "context": {
-    "summary": "Este contexto descreve de forma explícita e normativa todas as validações relacionadas ao ciclo de vida da solicitação de apólice. Cada estado possui regras claras de entrada, saída, bloqueios e condições obrigatórias, que devem ser rigorosamente respeitadas pela aplicação.",
-    "state_lifecycle_validations": [
-      {
-        "state": "RECEIVED",
-        "entry_validation": "Toda solicitação DEVE iniciar obrigatoriamente no estado RECEIVED no momento da criação.",
-        "allowed_transitions": [
-          "VALIDATED",
-          "CANCELLED"
-        ],
-        "forbidden_transitions": [
-          "PENDING",
-          "APPROVED",
-          "REJECTED"
-        ],
-        "process_validations": [
-          "Os dados iniciais da solicitação devem ser coletados e persistidos neste estado.",
-          "A solicitação deve aguardar obrigatoriamente a análise da API de Fraudes antes de qualquer outra transição.",
-          "Nenhuma regra de capital segurado pode ser aplicada antes do retorno da API de Fraudes."
-        ]
-      },
-      {
-        "state": "VALIDATED",
-        "entry_validation": "Este estado só pode ser alcançado após consulta bem-sucedida à API de Fraudes.",
-        "allowed_transitions": [
-          "PENDING",
-          "REJECTED"
-        ],
-        "forbidden_transitions": [
-          "APPROVED",
-          "CANCELLED"
-        ],
-        "process_validations": [
-          "A classificação de risco retornada pela API de Fraudes DEVE ser uma das seguintes: REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION.",
-          "As regras de capital segurado DEVEM ser aplicadas conforme o perfil de risco do cliente.",
-          "Caso qualquer regra de validação por perfil seja violada, a solicitação DEVE ser rejeitada."
-        ]
-      },
-      {
-        "state": "PENDING",
-        "entry_validation": "Este estado só pode ser alcançado após validação positiva das regras de negócio no estado VALIDATED.",
-        "allowed_transitions": [
-          "APPROVED",
-          "REJECTED",
-          "CANCELLED",
-          "PENDING"
-        ],
-        "forbidden_transitions": [
-          "RECEIVED",
-          "VALIDATED"
-        ],
-        "process_validations": [
-          "A solicitação deve permanecer neste estado até receber evento de confirmação de pagamento E autorização de subscrição.",
-          "Reprocessamentos podem ocorrer mantendo o estado como PENDING.",
-          "Eventos externos devem ser correlacionados corretamente com o ID da solicitação."
-        ]
-      },
-      {
-        "state": "REJECTED",
-        "entry_validation": "Pode ser alcançado se regras de negócio não forem atendidas OU se pagamento OU subscrição forem negados.",
-        "allowed_transitions": [],
-        "forbidden_transitions": [
-          "RECEIVED",
-          "VALIDATED",
-          "PENDING",
-          "APPROVED",
-          "CANCELLED"
-        ],
-        "process_validations": [
-          "Este é um estado final.",
-          "Após rejeição, nenhuma nova alteração de estado é permitida.",
-          "A rejeição deve ser registrada no histórico com data/hora."
-        ]
-      },
-      {
-        "state": "APPROVED",
-        "entry_validation": "Somente pode ser alcançado após confirmação de pagamento E autorização de subscrição.",
-        "allowed_transitions": [],
-        "forbidden_transitions": [
-          "RECEIVED",
-          "VALIDATED",
-          "PENDING",
-          "REJECTED",
-          "CANCELLED"
-        ],
-        "process_validations": [
-          "Este é um estado final.",
-          "Uma solicitação aprovada NÃO pode ser cancelada.",
-          "A data/hora de finalização deve ser registrada."
-        ]
-      },
-      {
-        "state": "CANCELLED",
-        "entry_validation": "Pode ser acionado pelo cliente a qualquer momento, exceto se a solicitação já estiver APPROVED ou REJECTED.",
-        "allowed_transitions": [],
-        "forbidden_transitions": [
-          "RECEIVED",
-          "VALIDATED",
-          "PENDING",
-          "APPROVED",
-          "REJECTED"
-        ],
-        "process_validations": [
-          "Este é um estado final.",
-          "Após cancelamento, nenhuma outra transição é permitida.",
-          "O cancelamento deve ser registrado no histórico com data/hora."
-        ]
+    "summary": "Esta documentação consolida todas as decisões técnicas, regras de negócio, arquitetura, testes e premissas do desafio de emissão de apólices. O objetivo é explicitar o racional por trás do código, garantir rastreabilidade das regras do validation-rules.json, justificar escolhas técnicas e indicar claramente o que foi ou não desenvolvido por restrição de tempo.",
+    "business_rules": {
+      "state_machine": "A aplicação implementa uma máquina de estados estrita para a solicitação de apólice: RECEIVED → VALIDATED → PENDING → (APPROVED | REJECTED | CANCELLED). Estados finais são imutáveis.",
+      "final_state_conditions": {
+        "APPROVED": "Pagamento CONFIRMED e Seguro AUTHORIZED",
+        "REJECTED": "Violação de regras, pagamento REFUSED ou seguro DENIED",
+        "CANCELLED": "Solicitação explícita do cliente antes de estados finais"
       }
-    ],
-    "cross_state_validations": [
-      {
-        "rule": "Toda transição de estado deve ser validada contra o estado atual da solicitação."
+    },
+    "mensageria": {
+      "broker_choice": {
+        "selected": "RabbitMQ (recomendado)",
+        "alternatives": [
+          "Apache Kafka",
+          "ActiveMQ",
+          "IBMMQ",
+          "AWS SQS"
+        ],
+        "justification": "RabbitMQ oferece interface gráfica e CLI simples, facilitando reprodução de testes e inspeção de mensagens."
       },
-      {
-        "rule": "Transições inválidas devem ser rejeitadas com erro claro (ex: HTTP 409 ou 422)."
+      "message_format": {
+        "format": "JSON",
+        "avro_decision": "Avro não foi utilizado por restrição de tempo do desafio, priorizando entrega funcional, clareza e cobertura de testes."
       },
-      {
-        "rule": "Toda mudança de estado deve gerar registro no histórico e evento de mensageria."
+      "interaction_examples": {
+        "payment_events": [
+          "PAYMENT_CONFIRMED",
+          "PAYMENT_REFUSED"
+        ],
+        "insurance_events": [
+          "INSURANCE_AUTHORIZED",
+          "INSURANCE_DENIED"
+        ],
+        "correlation": "Todos os eventos são correlacionados pelo ID da solicitação de apólice."
       },
-      {
-        "rule": "Estados finais (APPROVED, REJECTED, CANCELLED) encerram definitivamente o ciclo de vida."
+      "status": "PARCIALMENTE IMPLEMENTADO",
+      "notes": "Consumers existem, porém exemplos de uso via CLI/UI e configuração completa do broker ainda precisam ser documentados."
+    },
+    "infrastructure": {
+      "docker_compose": {
+        "should_contain": [
+          "Banco de dados",
+          "Broker de mensageria",
+          "Mock Server (API de Fraudes)",
+          "Aplicação principal"
+        ],
+        "status": "NÃO IMPLEMENTADO",
+        "notes": "A criação do docker-compose.yml completo ficou fora do escopo por limitação de tempo."
       }
+    },
+    "testing_strategy": {
+      "approach": [
+        "Testes unitários",
+        "Testes de componentes",
+        "Cobertura das regras do validation-rules.json"
+      ],
+      "component_tests": "Cenários cobrem todas as transições válidas, inválidas, estados finais e eventos fora de ordem.",
+      "test_data_strategy": {
+        "change": "Substituição de TestDataFixtures por templates",
+        "details": "Diretório templates utiliza builders semânticos para compor fluxos completos (policy, pagamento, seguro)."
+      },
+      "status": "IMPLEMENTADO (CÓDIGO) / PARCIALMENTE DOCUMENTADO"
+    },
+    "architecture_and_design": {
+      "clean_architecture": "Separação clara entre domínio, aplicação e infraestrutura. Consumers, persistência e mensageria são detalhes externos.",
+      "abstraction_and_coupling": "Integrações externas são acessadas via interfaces (ports), reduzindo acoplamento e facilitando substituições.",
+      "extensibility_and_cohesion": "Regras de negócio e máquina de estados estão centralizadas no domínio, garantindo alta coesão e fácil evolução.",
+      "design_patterns": [
+        {
+          "pattern": "State",
+          "usage": "Controle das transições válidas da policy"
+        },
+        {
+          "pattern": "Strategy",
+          "usage": "Validações por perfil de risco e capital segurado"
+        },
+        {
+          "pattern": "Builder / Template",
+          "usage": "Criação de cenários complexos nos testes de componentes"
+        },
+        {
+          "pattern": "Factory (conceitual)",
+          "usage": "Criação de eventos de domínio e mensagens de integração"
+        }
+      ],
+      "solid_principles": {
+        "SRP": "Cada classe possui uma única responsabilidade",
+        "OCP": "Novos estados e regras podem ser adicionados sem alterar código existente",
+        "DIP": "Dependência de abstrações e não de implementações concretas"
+      },
+      "clean_code": "Código com nomes explícitos, métodos pequenos e testes que documentam o comportamento esperado."
+    },
+    "observability": {
+      "logging": "Logs registram transições de estado e consumo de eventos",
+      "metrics_and_traces": "Não implementados",
+      "status": "PARCIALMENTE IMPLEMENTADO"
+    },
+    "premises_and_assumptions": [
+      "Eventos fora de ordem são rejeitados ou ignorados conforme o estado atual",
+      "Estados finais são imutáveis",
+      "Pagamento e seguro são obrigatórios para aprovação",
+      "Design Patterns são aplicados de forma pragmática, evitando superengenharia"
     ]
   },
   "contradictions_or_conflicts": [],
   "errors_or_warnings": [
     {
-      "issue_type": "state_machine_strictness",
-      "description": "O desafio exige uma máquina de estados estrita, mas não define tratamento padrão para eventos fora de ordem.",
-      "proposed_solution": "Validar se a aplicação ignora ou rejeita eventos incompatíveis com o estado atual."
+      "issue_type": "documentation_gap",
+      "description": "README.md ainda não consolida todos os pontos exigidos pelo desafio.",
+      "proposed_solution": "Utilizar este arquivo como base para atualizar o README.md."
+    },
+    {
+      "issue_type": "infrastructure_gap",
+      "description": "Infraestrutura completa via docker-compose não foi desenvolvida.",
+      "proposed_solution": "Documentar explicitamente a limitação de tempo e a abordagem planejada."
+    },
+    {
+      "issue_type": "mensageria_examples_missing",
+      "description": "Faltam exemplos reproduzíveis de publicação/consumo de mensagens.",
+      "proposed_solution": "Adicionar exemplos via CLI/UI do broker escolhido no README."
     }
   ]
 }

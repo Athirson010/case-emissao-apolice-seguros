@@ -41,6 +41,16 @@ public class PolicyProposal {
     private boolean subscriptionConfirmed = false;
 
     @Builder.Default
+    private boolean paymentResponseReceived = false;
+
+    @Builder.Default
+    private boolean subscriptionResponseReceived = false;
+
+    private String paymentRejectionReason;
+
+    private String subscriptionRejectionReason;
+
+    @Builder.Default
     private List<HistoryEntry> history = new ArrayList<>();
 
     public static PolicyProposal create(
@@ -100,36 +110,119 @@ public class PolicyProposal {
         addHistoryEntry(PolicyStatus.PENDING, now, null);
     }
 
+    /**
+     * Processa resposta do microserviço de pagamento.
+     * Só aprova ou rejeita a apólice quando AMBAS respostas (pagamento + subscrição) forem recebidas.
+     *
+     * @param approved indica se o pagamento foi aprovado
+     * @param rejectionReason motivo da rejeição (se houver)
+     * @param now timestamp da resposta
+     */
+    public void processPaymentResponse(boolean approved, String rejectionReason, Instant now) {
+        if (this.status != PolicyStatus.PENDING) {
+            throw new InvalidTransitionException(
+                    String.format("Cannot process payment response for policy in status: %s. Must be PENDING.", this.status)
+            );
+        }
+
+        if (this.paymentResponseReceived) {
+            throw new IllegalStateException("Payment response already received for this policy");
+        }
+
+        this.paymentResponseReceived = true;
+        this.paymentConfirmed = approved;
+        this.paymentRejectionReason = rejectionReason;
+
+        // Só decide o status final quando AMBAS respostas foram recebidas
+        if (hasBothResponses()) {
+            evaluateFinalStatus(now);
+        }
+    }
+
+    /**
+     * Processa resposta do microserviço de subscrição/seguro.
+     * Só aprova ou rejeita a apólice quando AMBAS respostas (pagamento + subscrição) forem recebidas.
+     *
+     * @param approved indica se a subscrição foi aprovada
+     * @param rejectionReason motivo da rejeição (se houver)
+     * @param now timestamp da resposta
+     */
+    public void processSubscriptionResponse(boolean approved, String rejectionReason, Instant now) {
+        if (this.status != PolicyStatus.PENDING) {
+            throw new InvalidTransitionException(
+                    String.format("Cannot process subscription response for policy in status: %s. Must be PENDING.", this.status)
+            );
+        }
+
+        if (this.subscriptionResponseReceived) {
+            throw new IllegalStateException("Subscription response already received for this policy");
+        }
+
+        this.subscriptionResponseReceived = true;
+        this.subscriptionConfirmed = approved;
+        this.subscriptionRejectionReason = rejectionReason;
+
+        // Só decide o status final quando AMBAS respostas foram recebidas
+        if (hasBothResponses()) {
+            evaluateFinalStatus(now);
+        }
+    }
+
+    /**
+     * Verifica se recebeu resposta de AMBOS microserviços (pagamento E subscrição)
+     */
+    private boolean hasBothResponses() {
+        return this.paymentResponseReceived && this.subscriptionResponseReceived;
+    }
+
+    /**
+     * Avalia o status final da apólice após receber AMBAS respostas.
+     * Regras:
+     * - APPROVED: Somente se AMBAS foram aprovadas
+     * - REJECTED: Se PELO MENOS UMA foi rejeitada
+     */
+    private void evaluateFinalStatus(Instant now) {
+        if (this.paymentConfirmed && this.subscriptionConfirmed) {
+            // Ambas aprovadas -> APPROVED
+            approve(now);
+        } else {
+            // Pelo menos uma rejeitada -> REJECTED
+            String reason = buildRejectionReason();
+            reject(reason, now);
+        }
+    }
+
+    /**
+     * Constrói a mensagem de rejeição combinando os motivos de pagamento e subscrição
+     */
+    private String buildRejectionReason() {
+        List<String> reasons = new ArrayList<>();
+
+        if (!this.paymentConfirmed && this.paymentRejectionReason != null) {
+            reasons.add("Pagamento rejeitado: " + this.paymentRejectionReason);
+        }
+
+        if (!this.subscriptionConfirmed && this.subscriptionRejectionReason != null) {
+            reasons.add("Subscrição rejeitada: " + this.subscriptionRejectionReason);
+        }
+
+        return reasons.isEmpty() ? "Rejeitado" : String.join("; ", reasons);
+    }
+
+    /**
+     * @deprecated Use processPaymentResponse() instead
+     */
+    @Deprecated
     public void confirmPayment(Instant now) {
-        if (this.status != PolicyStatus.PENDING) {
-            throw new InvalidTransitionException(
-                    String.format("Cannot confirm payment for policy in status: %s. Must be PENDING.", this.status)
-            );
-        }
-        this.paymentConfirmed = true;
-
-        if (canApprove()) {
-            approve(now);
-        }
+        processPaymentResponse(true, null, now);
     }
 
+    /**
+     * @deprecated Use processSubscriptionResponse() instead
+     */
+    @Deprecated
     public void confirmSubscription(Instant now) {
-        if (this.status != PolicyStatus.PENDING) {
-            throw new InvalidTransitionException(
-                    String.format("Cannot confirm subscription for policy in status: %s. Must be PENDING.", this.status)
-            );
-        }
-        this.subscriptionConfirmed = true;
-
-        if (canApprove()) {
-            approve(now);
-        }
-    }
-
-    private boolean canApprove() {
-        return this.status == PolicyStatus.PENDING &&
-                this.paymentConfirmed &&
-                this.subscriptionConfirmed;
+        processSubscriptionResponse(true, null, now);
     }
 
     public void approve(Instant now) {

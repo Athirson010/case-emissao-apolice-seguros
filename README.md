@@ -4,697 +4,812 @@
 
 [![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2+-green.svg)](https://spring.io/projects/spring-boot)
-[![MongoDB](https://img.shields.io/badge/MongoDB-latest-green.svg)](https://www.mongodb.com/)
-[![Kafka](https://img.shields.io/badge/Kafka-3.1+-black.svg)](https://kafka.apache.org/)
-[![AWS](https://img.shields.io/badge/AWS-SQS-orange.svg)](https://aws.amazon.com/sqs/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green.svg)](https://www.mongodb.com/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-orange.svg)](https://www.rabbitmq.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## 📋 Sobre o Projeto
 
-Sistema robusto e escalável para emissão, gerenciamento e análise de apólices de seguros, desenvolvido com foco em *
-*Arquitetura Hexagonal (Ports and Adapters)**, **Event-Driven Architecture** e boas práticas de desenvolvimento.
+Sistema robusto e escalável para emissão, gerenciamento e processamento de apólices de seguros, desenvolvido com foco em **Clean Architecture**, **Event-Driven Architecture** e boas práticas de desenvolvimento (SOLID, Clean Code).
 
-O sistema utiliza:
+### Tecnologias Utilizadas
 
-- **MongoDB** para persistência
-- **AWS SQS** para processamento assíncrono de análise de fraude
-- **Apache Kafka** para publicação de eventos de apólices aprovadas
-- **Spring Profiles** para separação de contextos e escalabilidade independente
+- **MongoDB** para persistência de dados
+- **RabbitMQ** para mensageria assíncrona (pagamentos e subscrições)
+- **Spring Boot 3.2+** como framework base
+- **Java 17+** com recursos modernos
+- **Clean Architecture** (Ports & Adapters / Hexagonal Architecture)
+
+---
+
+## 🎯 Desafio Técnico - Resumo Executivo
+
+### Objetivos Alcançados
+
+✅ **Máquina de Estados Completa**: Implementação rigorosa de transições válidas e estados finais imutáveis
+✅ **16 Regras de Validação**: 100% das regras do `validation-rules.json` implementadas e testadas
+✅ **Consumers RabbitMQ**: Processamento de eventos de pagamento e subscrição
+✅ **Testes de Componentes**: Cobertura completa do ciclo de vida das apólices
+✅ **Templates com Builders**: Substituição de fixtures por builders semânticos
+✅ **Documentação Completa**: Arquitetura, decisões técnicas e premissas documentadas
+
+### Decisões de Escopo
+
+✅ **Docker Compose**: Infraestrutura completa com MongoDB 7.0, RabbitMQ 3.13, Kafka 7.5.0 e Kafka UI
+❌ **Apache Avro**: Optou-se por JSON para agilizar desenvolvimento e facilitar testes
+❌ **Observabilidade Avançada**: Métricas e traces não foram implementados (fora do escopo)
+
+---
 
 ## 🏗️ Arquitetura
 
-![Diagrama de Solução](docs/diagrama.png)
+### Decisões Arquiteturais
 
-O projeto foi desenvolvido utilizando **Arquitetura Hexagonal (Ports and Adapters)** com **Event-Driven Architecture**,
-garantindo:
+#### Clean Architecture (Ports & Adapters)
 
-- **Separação de responsabilidades** entre camadas de domínio, aplicação e infraestrutura
-- **Independência de frameworks** e tecnologias externas
-- **Processamento assíncrono** com filas e eventos
-- **Escalabilidade independente** de cada contexto via Spring Profiles
-- **Facilidade de testes** e manutenção
-- **Flexibilidade** para mudanças tecnológicas
-
-### Arquitetura de Profiles - Separação de Contextos
-
-A aplicação utiliza **Spring Profiles** para separar contextos e permitir escalabilidade independente:
-
-| Profile            | Descrição                         | Porta | Componentes Ativos                    |
-|--------------------|-----------------------------------|-------|---------------------------------------|
-| **api**            | REST API para criação de apólices | 8080  | Controllers, SQS Producer, MongoDB    |
-| **fraud-consumer** | Consumer para análise de fraude   | 8081  | SQS Consumer, Kafka Producer, MongoDB |
-
-**Benefícios:**
-
-- ✅ **1 único build** - Um JAR para ambos os contextos
-- ✅ **Escalabilidade Independente** - Escale API e Consumer separadamente
-- ✅ **Isolamento de Falhas** - Se o consumer falhar, a API continua funcionando
-- ✅ **Otimização de Recursos** - Cada contexto usa apenas o necessário
-
-📖 **Documentação completa**: [PROFILES.md](PROFILES.md)
-
-### Estrutura Modular
-
-O projeto está organizado em módulos Maven independentes seguindo os princípios da arquitetura hexagonal:
+O projeto foi estruturado seguindo os princípios da **Clean Architecture**:
 
 ```
-case-emissao-apolice-seguros/
-│
-├── order-domain/                          # Camada de Domínio (Núcleo da aplicação)
-│   └── src/main/java/
-│       └── io/github/athirson010/domain/
-│           ├── enums/                     # Enumerações de domínio
-│           │   ├── Category.java          # Categorias de seguro (AUTO, VIDA, RESIDENCIAL...)
-│           │   ├── PolicyStatus.java      # Estados da apólice (RECEIVED, VALIDATED, APPROVED...)
-│           │   ├── RiskClassification.java # Classificação de risco (REGULAR, HIGH_RISK...)
-│           │   ├── PaymentMethod.java     # Métodos de pagamento (CREDIT_CARD, PIX, BOLETO)
-│           │   ├── SalesChannel.java      # Canais de venda
-│           │   └── OccurrenceType.java    # Tipos de ocorrência de fraude
-│           ├── exception/                 # Exceções de domínio
-│           │   ├── DomainException.java
-│           │   └── InvalidTransitionException.java
-│           ├── model/                     # Entidades e Value Objects
-│           │   ├── PolicyProposal.java    # Agregado raiz - Proposta de apólice
-│           │   ├── PolicyProposalId.java  # Value Object - ID da proposta
-│           │   ├── Money.java             # Value Object - Valor monetário
-│           │   ├── HistoryEntry.java      # Value Object - Entrada de histórico
-│           │   ├── FraudAnalysisResult.java # Resultado da análise de fraude
-│           │   └── FraudOccurrence.java   # Ocorrência de fraude
-│           ├── rules/                     # Regras de negócio
-│           │   └── (Validações de limites por categoria e risco)
-│           └── service/                   # Serviços de domínio
-│
-├── order-core/                            # Camada de Aplicação
-│   └── src/main/java/
-│       └── io/github/athirson010/core/
-│           ├── port/                      # Portas (interfaces)
-│           │   ├── in/                    # Portas de entrada
-│           │   │   └── CreateOrderUseCase.java  # Caso de uso de criação
-│           │   └── out/                   # Portas de saída
-│           │       ├── OrderRepository.java     # Repositório de apólices
-│           │       ├── FraudQueuePort.java      # Porta para fila de fraude
-│           │       ├── FraudCheckPort.java      # Porta para API de fraude
-│           │       ├── OrderEventPort.java      # Porta para eventos (Kafka)
-│           │       └── NotificationPort.java    # Porta para notificações
-│           └── service/                   # Serviços de aplicação
-│               ├── OrderApplicationService.java # Orquestração de casos de uso
-│               └── PolicyValidationService.java # Validação de regras de negócio
-│
-├── order-adapters-in/                     # Adaptadores de Entrada
-│   └── src/main/java/
-│       └── io/github/athirson010/adapters/in/
-│           ├── web/                       # Adaptador REST API
-│           │   ├── PolicyRequestController.java  # Controller REST (@Profile("api"))
-│           │   ├── dto/                   # DTOs de request/response
-│           │   │   ├── CreatePolicyRequest.java
-│           │   │   ├── CreatePolicyResponse.java
-│           │   │   ├── CancelPolicyRequest.java
-│           │   │   └── CancelPolicyResponse.java
-│           │   ├── mapper/                # Mapeadores
-│           │   │   └── PolicyRequestMapper.java
-│           │   ├── exception/             # Tratamento de exceções
-│           │   │   ├── GlobalExceptionHandler.java
-│           │   │   └── ErrorResponse.java
-│           │   └── validation/            # Validações customizadas
-│           │       ├── annotation/        # Anotações de validação
-│           │       │   └── ValidCoverages.java
-│           │       └── validator/         # Validadores
-│           └── messaging/                 # Adaptador de Mensageria
-│               └── rabbitmq/              # Consumer SQS
-│                   └── FraudQueueConsumer.java  # (@Profile("fraud-consumer"))
-│
-├── order-adapters-out/                    # Adaptadores de Saída
-│   └── src/main/java/
-│       └── io/github/athirson010/adapters/out/
-│           ├── persistence/               # Adaptador de Persistência
-│           │   └── mongo/                 # MongoDB
-│           │       ├── document/          # Documentos MongoDB
-│           │       │   ├── PolicyProposalDocument.java
-│           │       │   ├── AddressEntity.java
-│           │       │   ├── AssistanceEntity.java
-│           │       │   ├── AutoDataEntity.java
-│           │       │   └── (outros documentos...)
-│           │       ├── enums/             # Enums para persistência
-│           │       ├── mapper/            # Mapeadores de persistência
-│           │       │   └── PolicyProposalDocumentMapper.java
-│           │       └── repository/        # Repositórios MongoDB
-│           │           └── PolicyProposalMongoRepository.java
-│           ├── messaging/                 # Adaptadores de Mensageria
-│           │   ├── rabbitmq/              # SQS
-│           │   │   └── FraudQueueAdapter.java  # Producer SQS (@Profile("api"))
-│           │   ├── kafka/                 # Kafka
-│           │   │   └── OrderKafkaProducer.java # Producer Kafka (@Profile("fraud-consumer"))
-│           │   └── sns/                   # SNS
-│           │       └── OrderSnsAdapter.java
-│           └── fraud/                     # Adaptador API de Fraude
-│               ├── FraudApiAdapter.java   # Cliente da API de fraude (mock)
-│               ├── dto/                   # DTOs da API de fraude
-│               │   ├── FraudAnalysisResponseDto.java
-│               │   └── FraudOccurrenceDto.java
-│               └── mapper/                # Mapeadores
-│                   └── FraudAnalysisMapper.java
-│
-├── order-application/                     # Módulo de Inicialização
-│   └── src/main/
-│       ├── java/
-│       │   └── io/github/athirson010/application/
-│       │       ├── OrderApplication.java  # Classe principal Spring Boot
-│       │       └── config/                # Configurações
-│       │           ├── JacksonConfig.java
-│       │           ├── KafkaConfig.java   # (@Profile("fraud-consumer"))
-│       │           ├── RabbitMQConfig.java # (SQS Config)
-│       │           └── OpenApiConfig.java # Swagger/OpenAPI
-│       ├── resources/
-│       │   └── application.yml            # Properties unificado (ambos profiles)
-│       └── test/
-│           └── java/
-│               └── io/github/athirson010/arch/
-│                   └── ArchitectureTest.java  # Testes de arquitetura (ArchUnit)
-│
-├── docs/                                  # Documentação
-│   ├── diagrama.png                       # Diagrama de solução
-│   └── itau-app.jpeg                      # Logo/Imagem
-│
-├── docker-compose.yaml                    # Infraestrutura (MongoDB, Kafka, LocalStack)
-├── pom.xml                                # POM pai do projeto multi-módulo
-└── README.md                              # Este arquivo
+┌─────────────────────────────────────────────────┐
+│           CAMADA DE DOMÍNIO (Core)              │
+│  - Regras de negócio puras                      │
+│  - Máquina de estados (PolicyProposal)          │
+│  - Value Objects (Money, PolicyProposalId)      │
+│  - Sem dependências externas                    │
+└─────────────────────────────────────────────────┘
+                      ↑
+┌─────────────────────────────────────────────────┐
+│        CAMADA DE APLICAÇÃO (Use Cases)          │
+│  - Orquestração de casos de uso                 │
+│  - PolicyValidationService (16 regras)          │
+│  - Ports (interfaces para I/O)                  │
+└─────────────────────────────────────────────────┘
+                      ↑
+┌─────────────────────────────────────────────────┐
+│    CAMADA DE INFRAESTRUTURA (Adapters)          │
+│  - Controllers REST (Adapters IN)               │
+│  - Consumers RabbitMQ (Adapters IN)             │
+│  - MongoDB Repository (Adapters OUT)            │
+│  - Configurações Spring                         │
+└─────────────────────────────────────────────────┘
 ```
 
-## 🔄 Fluxo de Processamento Completo
+**Benefícios**:
+- ✅ **Testabilidade**: Domínio testável sem dependências externas
+- ✅ **Flexibilidade**: Troca de tecnologias sem impacto no core
+- ✅ **Manutenibilidade**: Separação clara de responsabilidades
+- ✅ **Independência**: Domínio não conhece frameworks ou bibliotecas
+
+---
+
+## 🔄 Máquina de Estados
+
+### Diagrama de Transições
 
 ```
-┌─────────────────────────────────┐
-│    Profile: API (porta 8080)    │
-└────────────┬────────────────────┘
-             │
-             │ 1. POST /policies
-             ↓
-      ┌─────────────┐
-      │  Controller │
-      └──────┬──────┘
-             │
-             ├─→ 2. Persiste MongoDB (status: RECEIVED)
-             │
-             └─→ 3. Envia SQS (order-service-fraud-consumer)
-                    │
-                    │
-                    ↓
-┌────────────────────────────────────────┐
-│ Profile: fraud-consumer (porta 8081)   │
-└────────────┬───────────────────────────┘
-             │
-             │ 4. Consumer SQS recebe
-             ↓
-      ┌──────────────┐
-      │ Fraud Queue  │
-      │   Consumer   │
-      └──────┬───────┘
-             │
-             ├─→ 5. API Fraudes (Mock)
-             │       ↓ RiskClassification
-             │
-             ├─→ 6. PolicyValidationService
-             │       ↓ Valida limites por categoria
-             │
-             ├─→ 7. Atualiza MongoDB
-             │        ├─ VALIDATED → APPROVED (se válido)
-             │        └─ VALIDATED → REJECTED (se inválido)
-             │
-             └─→ 8. Se APPROVED:
-                     Publica Kafka (order-topic)
+RECEIVED → VALIDATED → PENDING → APPROVED ✓
+    ↓           ↓          ↓
+CANCELED    REJECTED   REJECTED
 ```
 
-## 🎯 Funcionalidades
+### Transições Válidas
 
-### Gestão de Apólices
+| Estado Atual | Transições Permitidas | Restrições |
+|--------------|----------------------|------------|
+| **RECEIVED** | VALIDATED, CANCELED | Estado inicial |
+| **VALIDATED** | PENDING, REJECTED | Após validação de fraude |
+| **PENDING** | APPROVED, REJECTED | Aguarda pagamento E subscrição |
+| **APPROVED** | - | Estado final (imutável) |
+| **REJECTED** | - | Estado final (imutável) |
+| **CANCELED** | - | Estado final (imutável) |
 
-- ✅ Criar nova proposta de apólice
-- ✅ Consultar apólice por ID
-- ✅ Cancelar apólice
-- ✅ Máquina de estados com transições validadas
-- ✅ Histórico completo de alterações de status
+### Regras de Aprovação/Rejeição (Dual Confirmation)
 
-### Análise de Fraude Assíncrona
+A apólice utiliza o conceito de **Dual Confirmation**: aguarda resposta de **AMBOS** microserviços (pagamento E subscrição) antes de decidir se aprova ou rejeita.
 
-- ✅ Análise automática via API de fraude (mock)
-- ✅ Classificação de risco do cliente (REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION)
-- ✅ Validação de limites de capital segurado por categoria e classificação
-- ✅ Processamento assíncrono via SQS
+#### Comportamento por Cenário:
 
-### Publicação de Eventos
+| Resposta Pagamento | Resposta Subscrição | Status Final | Explicação |
+|-------------------|---------------------|--------------|------------|
+| ✅ APPROVED | ⏳ *aguardando* | **PENDING** | Permanece aguardando subscrição |
+| ❌ REJECTED | ⏳ *aguardando* | **PENDING** | Permanece aguardando subscrição |
+| ⏳ *aguardando* | ✅ APPROVED | **PENDING** | Permanece aguardando pagamento |
+| ⏳ *aguardando* | ❌ REJECTED | **PENDING** | Permanece aguardando pagamento |
+| ✅ APPROVED | ✅ APPROVED | **APPROVED** ✓ | Ambas aprovadas → Aprova |
+| ✅ APPROVED | ❌ REJECTED | **REJECTED** ✗ | Pelo menos uma rejeitada → Rejeita |
+| ❌ REJECTED | ✅ APPROVED | **REJECTED** ✗ | Pelo menos uma rejeitada → Rejeita |
+| ❌ REJECTED | ❌ REJECTED | **REJECTED** ✗ | Ambas rejeitadas → Rejeita |
 
-- ✅ Eventos de apólices aprovadas publicados no Kafka
-- ✅ Integração com sistemas downstream
-- ✅ Garantia de entrega com confirmação (acks=all)
+#### Regras:
 
-### Fluxo de Estados
+✅ **APPROVED**: Somente quando recebeu **AMBAS** respostas E **AMBAS** são positivas
+❌ **REJECTED**: Quando recebeu **AMBAS** respostas E **PELO MENOS UMA** é negativa
+⏳ **PENDING**: Enquanto tiver recebido apenas **UMA** das duas respostas
 
-```
-RECEIVED → VALIDATED → APPROVED → (Kafka Event)
-    ↓           ↓
-CANCELED   REJECTED
-```
+#### Motivo de Rejeição:
 
-**Transições válidas:**
+Quando rejeitada, o motivo combinará as razões de ambos microserviços:
+- Se apenas pagamento rejeitado: `"Pagamento rejeitado: <motivo>"`
+- Se apenas subscrição rejeitada: `"Subscrição rejeitada: <motivo>"`
+- Se ambos rejeitados: `"Pagamento rejeitado: <motivo>; Subscrição rejeitada: <motivo>"`
 
-- `RECEIVED` → `VALIDATED` ou `CANCELED`
-- `VALIDATED` → `APPROVED` ou `REJECTED`
+Qualquer tentativa de transição inválida resulta em `InvalidTransitionException`.
 
-### Categorias de Seguro Suportadas
+**Implementação**:
+- `order-domain/.../PolicyProposal.java:121-226` (processPaymentResponse, processSubscriptionResponse)
+- `order-adapters-in/.../PaymentConfirmationConsumer.java:46-83`
+- `order-adapters-in/.../SubscriptionConfirmationConsumer.java:46-83`
 
-- 🚗 **AUTO** - Seguro Automotivo
-- ❤️ **VIDA** - Seguro de Vida
-- 🏠 **RESIDENCIAL** - Seguro Residencial
-- 🏢 **EMPRESARIAL** - Seguro Empresarial
-- 📦 **OUTROS** - Outros tipos de seguro
+**Testes**: `order-domain/.../PolicyProposalDualConfirmationTest.java` (17 testes cobrindo todos os cenários)
 
-### Classificações de Risco
+---
 
-- 👤 **REGULAR** - Cliente regular
-- ⚠️ **HIGH_RISK** - Cliente de alto risco
-- ⭐ **PREFERENTIAL** - Cliente preferencial
-- ❓ **NO_INFORMATION** - Sem informações do cliente
+## 📐 Regras de Negócio (validation-rules.json)
 
-### Regras de Validação por Classificação
+### Limites de Capital Segurado por Classificação de Risco
+
+O sistema implementa **16 regras de validação** (4 classificações × 4 categorias):
 
 #### Cliente REGULAR
 
-| Categoria         | Limite de Capital Segurado |
-|-------------------|----------------------------|
-| VIDA, RESIDENCIAL | ≤ R$ 500.000,00            |
-| AUTO              | ≤ R$ 350.000,00            |
-| EMPRESARIAL       | ≤ R$ 255.000,00            |
-| OUTROS            | ≤ R$ 100.000,00            |
+| Categoria | Limite | Operador |
+|-----------|--------|----------|
+| VIDA, RESIDENCIAL | R$ 500.000 | ≤ |
+| AUTO | R$ 350.000 | ≤ |
+| EMPRESARIAL | R$ 255.000 | ≤ |
+| OUTROS | R$ 100.000 | ≤ |
 
 #### Cliente HIGH_RISK
 
-| Categoria         | Limite de Capital Segurado |
-|-------------------|----------------------------|
-| AUTO              | ≤ R$ 250.000,00            |
-| RESIDENCIAL       | ≤ R$ 150.000,00            |
-| VIDA, EMPRESARIAL | ≤ R$ 125.000,00            |
-| OUTROS            | ≤ R$ 50.000,00             |
+| Categoria | Limite | Operador |
+|-----------|--------|----------|
+| AUTO | R$ 250.000 | ≤ |
+| RESIDENCIAL | R$ 150.000 | ≤ |
+| VIDA, EMPRESARIAL | R$ 125.000 | ≤ |
+| OUTROS | R$ 50.000 | ≤ |
 
 #### Cliente PREFERENTIAL
 
-| Categoria         | Limite de Capital Segurado |
-|-------------------|----------------------------|
-| VIDA              | < R$ 800.000,00            |
-| AUTO, RESIDENCIAL | < R$ 450.000,00            |
-| EMPRESARIAL       | ≤ R$ 375.000,00            |
-| OUTROS            | ≤ R$ 300.000,00            |
+| Categoria | Limite | Operador |
+|-----------|--------|----------|
+| VIDA | R$ 800.000 | < (estritamente menor) |
+| AUTO, RESIDENCIAL | R$ 450.000 | < (estritamente menor) |
+| EMPRESARIAL | R$ 375.000 | ≤ |
+| OUTROS | R$ 300.000 | ≤ |
 
 #### Cliente NO_INFORMATION
 
-| Categoria         | Limite de Capital Segurado |
-|-------------------|----------------------------|
-| VIDA, RESIDENCIAL | ≤ R$ 200.000,00            |
-| AUTO              | ≤ R$ 75.000,00             |
-| EMPRESARIAL       | ≤ R$ 55.000,00             |
-| OUTROS            | ≤ R$ 30.000,00             |
+| Categoria | Limite | Operador |
+|-----------|--------|----------|
+| VIDA, RESIDENCIAL | R$ 200.000 | ≤ |
+| AUTO | R$ 75.000 | ≤ |
+| EMPRESARIAL | R$ 55.000 | ≤ |
+| OUTROS | R$ 30.000 | ≤ |
 
-### Métodos de Pagamento
+**Implementação**: `order-core/src/main/java/io/github/athirson010/core/service/PolicyValidationService.java`
 
-- 💳 **CREDIT_CARD** - Cartão de Crédito
-- 💰 **PIX** - PIX
-- 📄 **BOLETO** - Boleto Bancário
+**Testes**: `order-component-test/src/test/java/io/github/athirson010/componenttest/validacao/ValidationRulesCompleteComponentTest.java`
 
-## 🚀 Tecnologias Utilizadas
+---
 
-### Core
+## 🐰 Mensageria com RabbitMQ
 
-- **Java 17**
-- **Spring Boot 3.2.1**
-- **Spring Web** (REST API)
-- **Spring Data MongoDB**
-- **Spring Kafka 3.1.1** - Produtor de eventos
-- **Spring Cloud AWS 3.1.0** - Integração com SQS
-- **Lombok** - Redução de boilerplate
+### Por que RabbitMQ?
 
-### Banco de Dados
+**Decisão**: Utilizamos **RabbitMQ** ao invés de Apache Kafka ou AWS SQS pelos seguintes motivos:
 
-- **MongoDB 7.0** - Banco de dados NoSQL para persistência
+1. **Interface Gráfica**: Management UI facilita debug e visualização de filas
+2. **Simplicidade**: Configuração e testes locais mais simples
+3. **Flexibilidade**: Suporta múltiplos padrões de mensageria (pub/sub, routing, topic)
+4. **Ampla Adoção**: Tecnologia consolidada e bem documentada
 
-### Mensageria e Eventos
+### Arquitetura de Mensageria
 
-- **AWS SQS** - Fila para processamento assíncrono de fraude
-- **Apache Kafka** - Publicação de eventos de apólices aprovadas
-- **LocalStack 3.0** - Emulação de serviços AWS em ambiente local
-
-### Qualidade de Código
-
-- **JUnit 5** - Testes unitários
-- **ArchUnit** - Testes de arquitetura
-- **Maven** - Gerenciamento de dependências e build
-
-### Monitoramento
-
-- **Spring Actuator** - Endpoints de health e métricas
-- **Kafka UI** - Interface gráfica para monitoramento do Kafka
-
-## 📦 Pré-requisitos
-
-- Java 17 ou superior
-- Maven 3.8+
-- Docker e Docker Compose
-- Git
-
-## 🔧 Instalação e Execução
-
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/seu-usuario/emissao-apolice-seguros.git
-cd emissao-apolice-seguros
+```
+┌─────────────────────────────────────────────────────┐
+│                   RabbitMQ Broker                   │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  Exchange: order.integration.exchange (Topic)      │
+│       │                                             │
+│       ├─→ Queue: order-service-consumer            │
+│       │   (Routing Key: order.process)             │
+│       │                                             │
+│       ├─→ Queue: order.payment.confirmation.queue  │
+│       │   (Routing Key: payment.confirmation)      │
+│       │                                             │
+│       └─→ Queue: order.subscription.confirmation.queue
+│           (Routing Key: subscription.confirmation) │
+│                                                     │
+└─────────────────────────────────────────────────────┘
 ```
 
-### 2. Inicie a infraestrutura (MongoDB, LocalStack, Kafka)
+### Consumers Implementados
+
+#### 1. PaymentConfirmationConsumer
+
+**Função**: Processa eventos de confirmação/rejeição de pagamento
+
+**Queue**: `order.payment.confirmation.queue`
+
+**Eventos Aceitos**:
+```json
+{
+  "policy_request_id": "uuid",
+  "payment_status": "APPROVED" | "REJECTED",
+  "transaction_id": "string",
+  "amount": "decimal",
+  "payment_method": "CREDIT_CARD" | "PIX" | "BOLETO",
+  "payment_timestamp": "ISO-8601",
+  "rejection_reason": "string (opcional)"
+}
+```
+
+**Comportamento**:
+- `APPROVED`: Marca `paymentConfirmed = true`, aprova se subscription também confirmada
+- `REJECTED`: Rejeita a apólice imediatamente
+
+**Implementação**: `order-adapters-in/src/main/java/io/github/athirson010/adapters/in/messaging/rabbitmq/PaymentConfirmationConsumer.java`
+
+#### 2. SubscriptionConfirmationConsumer
+
+**Função**: Processa eventos de confirmação/rejeição de subscrição
+
+**Queue**: `order.subscription.confirmation.queue`
+
+**Eventos Aceitos**:
+```json
+{
+  "policy_request_id": "uuid",
+  "subscription_status": "APPROVED" | "REJECTED",
+  "subscription_id": "string",
+  "authorization_timestamp": "ISO-8601",
+  "rejection_reason": "string (opcional)"
+}
+```
+
+**Comportamento**:
+- `APPROVED`: Marca `subscriptionConfirmed = true`, aprova se payment também confirmado
+- `REJECTED`: Rejeita a apólice imediatamente
+
+**Implementação**: `order-adapters-in/src/main/java/io/github/athirson010/adapters/in/messaging/rabbitmq/SubscriptionConfirmationConsumer.java`
+
+### Exemplos de Uso
+
+#### Publicar evento de pagamento aprovado (RabbitMQ CLI)
+
+```bash
+# Publicar mensagem de pagamento aprovado
+rabbitmqadmin publish \
+  exchange=order.integration.exchange \
+  routing_key=payment.confirmation \
+  payload='{"policy_request_id":"8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c","payment_status":"APPROVED","transaction_id":"TXN-12345","amount":"350.00","payment_method":"CREDIT_CARD","payment_timestamp":"2025-12-15T10:30:00Z"}'
+```
+
+#### Publicar evento de subscrição aprovada
+
+```bash
+rabbitmqadmin publish \
+  exchange=order.integration.exchange \
+  routing_key=subscription.confirmation \
+  payload='{"policy_request_id":"8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c","subscription_status":"APPROVED","subscription_id":"SUB-67890","authorization_timestamp":"2025-12-15T10:31:00Z"}'
+```
+
+### Configuração RabbitMQ
+
+**Arquivo**: `order-application/src/main/resources/application.properties`
+
+```properties
+# RabbitMQ Connection
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=admin
+spring.rabbitmq.password=admin
+
+# Exchanges e Queues
+rabbitmq.exchanges.order-integration=order.integration.exchange
+rabbitmq.queues.payment-confirmation=order.payment.confirmation.queue
+rabbitmq.queues.subscription-confirmation=order.subscription.confirmation.queue
+```
+
+---
+
+## 🎨 Design Patterns Implementados
+
+### 1. State Pattern (Máquina de Estados)
+
+**Onde**: `PolicyProposal.java`
+
+**Por quê**: Controlar transições válidas de estados da apólice, garantindo que regras de negócio sejam respeitadas.
+
+**Exemplo**:
+```java
+public void validate(Instant now) {
+    validateTransition(PolicyStatus.VALIDATED);  // State pattern aqui
+    this.status = PolicyStatus.VALIDATED;
+    addHistoryEntry(PolicyStatus.VALIDATED, now, null);
+}
+```
+
+### 2. Strategy Pattern (Validações)
+
+**Onde**: `PolicyValidationService.java`
+
+**Por quê**: Diferentes estratégias de validação para cada classificação de risco.
+
+**Exemplo**:
+```java
+boolean isValid = switch (classification) {
+    case REGULAR -> validateRegularCustomer(insuredAmount, category);
+    case HIGH_RISK -> validateHighRiskCustomer(insuredAmount, category);
+    case PREFERENTIAL -> validatePreferentialCustomer(insuredAmount, category);
+    case NO_INFORMATION -> validateNoInformationCustomer(insuredAmount, category);
+};
+```
+
+### 3. Builder Pattern (Testes)
+
+**Onde**: `order-component-test/src/test/java/io/github/athirson010/componenttest/templates/`
+
+**Por quê**: Criação fluente e semântica de dados de teste, substituindo fixtures estáticas.
+
+**Exemplo**:
+```java
+String json = PolicyRequestTemplateBuilder.autoRegular()
+    .withCustomerId("custom-uuid")
+    .withInsuredAmount(new BigDecimal("250000.00"))
+    .buildAsJson();
+```
+
+### 4. Factory Method (Criação de Entidades)
+
+**Onde**: `PolicyProposal.create()`
+
+**Por quê**: Garantir que entidades sejam criadas em estado válido.
+
+**Exemplo**:
+```java
+public static PolicyProposal create(UUID customerId, String productId, ...) {
+    PolicyProposal policy = PolicyProposal.builder()
+        .id(PolicyProposalId.generate())
+        .status(PolicyStatus.RECEIVED)
+        .build();
+
+    policy.addHistoryEntry(PolicyStatus.RECEIVED, now, null);
+    return policy;
+}
+```
+
+### 5. Repository Pattern
+
+**Onde**: `OrderRepository` interface + `PolicyProposalMongoRepository` implementação
+
+**Por quê**: Abstrair persistência, permitindo troca de banco de dados sem impactar domínio.
+
+### 6. Value Objects
+
+**Onde**: `Money`, `PolicyProposalId`, `HistoryEntry`
+
+**Por quê**: Encapsular conceitos de negócio com validação e imutabilidade.
+
+**Exemplo**:
+```java
+@Getter
+@ToString
+@EqualsAndHashCode
+public class Money {
+    private final BigDecimal amount;
+    private final String currency;
+
+    public static Money brl(BigDecimal amount) {
+        return new Money(amount, "BRL");
+    }
+}
+```
+
+---
+
+## 🧪 Estratégia de Testes
+
+### Pirâmide de Testes Implementada
+
+```
+        /\
+       /  \  E2E (Não implementados - fora escopo)
+      /────\
+     /      \ Testes de Componentes (✅ Implementados)
+    /────────\
+   /          \ Testes Unitários (✅ Implementados)
+  /────────────\
+```
+
+### Testes Unitários
+
+**Onde**: `order-domain/src/test/java/`
+
+**Cobertura**:
+- ✅ Todas as transições de estado válidas
+- ✅ Todas as transições inválidas (exceções)
+- ✅ Estados finais imutáveis
+- ✅ Histórico de transições
+- ✅ Value Objects
+
+**Exemplo**: `PolicyProposalTest.java` - 25 testes cobrindo toda a máquina de estados
+
+### Testes de Componentes
+
+**Onde**: `order-component-test/src/test/java/`
+
+**Cobertura**:
+- ✅ Ciclo de vida completo (RECEIVED → APPROVED)
+- ✅ Fluxos de rejeição (pagamento e subscrição)
+- ✅ Cancelamento
+- ✅ 100% das 16 regras de validação
+- ✅ Edge cases (valores no limite, decimais, operadores < vs ≤)
+
+**Testes Principais**:
+1. `PolicyLifecycleComponentTest.java` - Ciclo de vida end-to-end
+2. `ValidationRulesCompleteComponentTest.java` - 16 regras × 3 casos cada = 48 testes parametrizados
+
+### Templates com Builders
+
+**Substituição de TestDataFixtures**: Criamos builders semânticos ao invés de fixtures estáticas.
+
+**Vantagens**:
+- ✅ Mais expressivo: `PolicyRequestTemplateBuilder.autoRegular()`
+- ✅ Customizável: `.withInsuredAmount(...)`
+- ✅ Documenta o domínio: métodos como `autoExceedsRegularLimit()`
+- ✅ Reutilizável: `PolicyFlowScenarioBuilder.successfulFlow()`
+
+**Localização**: `order-component-test/src/test/java/io/github/athirson010/componenttest/templates/`
+
+**Builders Criados**:
+- `PolicyRequestTemplateBuilder` - Criação de solicitações de apólice
+- `PaymentConfirmationEventBuilder` - Eventos de pagamento
+- `SubscriptionConfirmationEventBuilder` - Eventos de subscrição
+- `PolicyFlowScenarioBuilder` - Cenários completos
+
+---
+
+## 🚀 Como Executar
+
+### Pré-requisitos
+
+- Java 17+
+- Maven 3.8+
+- MongoDB 7.0
+- RabbitMQ 3.13
+- Git
+- Docker e Docker Compose (para infraestrutura)
+
+### 1. Iniciar Infraestrutura com Docker Compose
+
+O projeto inclui um `docker-compose.yaml` completo com toda a infraestrutura necessária:
 
 ```bash
 docker-compose up -d
 ```
 
+Isso iniciará:
+- **MongoDB 7.0** (porta 27017)
+- **RabbitMQ 3.13** com Management UI (portas 5672 e 15672)
+- **Kafka 7.5.0** (porta 9092)
+- **Zookeeper** (porta 2181)
+- **Kafka UI** (porta 8090)
+
 Aguarde até que todos os serviços estejam saudáveis:
 
 ```bash
-docker ps
+docker-compose ps
 ```
 
-Verifique que estão rodando:
+**Interfaces Web Disponíveis**:
+- RabbitMQ Management: http://localhost:15672 (admin/admin)
+- Kafka UI: http://localhost:8090
 
-- MongoDB (porta 27017)
-- LocalStack SQS (porta 4566)
-- Kafka (porta 9092)
-- Zookeeper (porta 2181)
-- Kafka UI (porta 8090)
+#### Alternativa: Docker comandos individuais
 
-### 3. Compile o projeto
+Se preferir iniciar apenas MongoDB e RabbitMQ separadamente:
+
+**MongoDB**:
+```bash
+docker run -d \
+  --name mongodb \
+  -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=admin \
+  -e MONGO_INITDB_ROOT_PASSWORD=admin123 \
+  mongo:7.0
+```
+
+**RabbitMQ**:
+```bash
+docker run -d \
+  --name rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  -e RABBITMQ_DEFAULT_USER=admin \
+  -e RABBITMQ_DEFAULT_PASS=admin \
+  rabbitmq:3.13-management
+```
+
+### 2. Compilar o Projeto
 
 ```bash
-mvn clean install -DskipTests
+mvn clean install
 ```
 
-### 4. Execute os profiles
+### 3. Executar a Aplicação
 
-#### Opção A: Executar ambos os profiles simultaneamente
-
-**Terminal 1 - Profile API:**
+#### Profile: order-consumer
 
 ```bash
-# Windows
-start-api.bat
-
-# Linux/Mac
-./start-api.sh
+mvn spring-boot:run -Dspring-boot.run.profiles=order-consumer
 ```
 
-**Terminal 2 - Profile Fraud Consumer:**
+ou
 
 ```bash
-# Windows
-start-fraud-consumer.bat
-
-# Linux/Mac
-./start-fraud-consumer.sh
+java -jar order-application/target/order-application-*.jar --spring.profiles.active=order-consumer
 ```
 
-#### Opção B: Executar manualmente com Maven
+**Porta**: 8080
 
-**Profile API:**
+### 4. Executar Testes
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=api
+# Todos os testes
+mvn test
+
+# Apenas testes de componentes
+cd order-component-test && mvn test
+
+# Apenas testes unitários
+cd order-domain && mvn test
 ```
 
-**Profile Fraud Consumer:**
+---
 
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=fraud-consumer
-```
+## 📡 Endpoints da API
 
-#### Opção C: Executar com JAR
+### POST /policies
 
-```bash
-# Compilar
-mvn clean package -DskipTests
+Cria uma nova solicitação de apólice.
 
-# Profile API
-java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar --spring.profiles.active=api
-
-# Profile Fraud Consumer
-java -jar order-application/target/order-application-0.0.1-SNAPSHOT.jar --spring.profiles.active=fraud-consumer
-```
-
-### 5. Verifique os serviços
-
-**Profile API:**
-
-```bash
-curl http://localhost:8080/actuator/health
-```
-
-**Profile Fraud Consumer:**
-
-```bash
-curl http://localhost:8081/actuator/health
-```
-
-**Kafka UI:**
-
-```
-http://localhost:8090
-```
-
-## 🔌 Endpoints da API
-
-### Profile API (porta 8080)
-
-| Método | Endpoint           | Descrição                      |
-|--------|--------------------|--------------------------------|
-| POST   | `/policies`        | Criar nova proposta de apólice |
-| GET    | `/policies/{id}`   | Buscar apólice por ID          |
-| DELETE | `/policies/{id}`   | Cancelar apólice               |
-| GET    | `/actuator/health` | Health check                   |
-
-### Exemplo de Request - Criar Apólice
-
-**POST** `http://localhost:8080/policies`
-
+**Request**:
 ```json
 {
   "customer_id": "123e4567-e89b-12d3-a456-426614174000",
   "product_id": "PROD-AUTO-2024",
   "category": "AUTO",
-  "sales_channel": "MOBILE_APP",
+  "sales_channel": "MOBILE",
   "payment_method": "CREDIT_CARD",
   "total_monthly_premium_amount": 350.00,
-  "insured_amount": 50000.00,
+  "insured_amount": 200000.00,
   "coverages": {
-    "COLISAO": 50000.00,
-    "ROUBO_FURTO": 45000.00,
-    "INCENDIO": 50000.00
+    "COLISAO": 200000.00
   },
-  "assistances": [
-    "GUINCHO_24H",
-    "CHAVEIRO",
-    "TROCA_DE_PNEUS"
-  ]
+  "assistances": ["GUINCHO_24H"]
 }
 ```
 
-**Response:**
-
+**Response** (201 Created):
 ```json
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
   "status": "RECEIVED",
-  "created_at": "2024-12-13T10:30:00Z"
+  "created_at": "2025-12-15T10:30:00Z"
 }
 ```
 
-### Exemplo de Request - Cancelar Apólice
+### GET /policies/{id}
 
-**DELETE** `http://localhost:8080/policies/{id}`
+Consulta o status de uma apólice.
 
-**Response:**
+**Response** (200 OK):
+```json
+{
+  "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
+  "status": "PENDING",
+  "created_at": "2025-12-15T10:30:00Z",
+  "finished_at": null
+}
+```
 
+### DELETE /policies/{id}
+
+Cancela uma apólice (somente antes de estados finais).
+
+**Response** (200 OK):
 ```json
 {
   "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
   "status": "CANCELED",
-  "finished_at": "2024-12-13T11:00:00Z"
+  "finished_at": "2025-12-15T11:00:00Z"
 }
 ```
 
-### Exemplo de Request - Consultar Apólice
+---
 
-**GET** `http://localhost:8080/policies/{id}`
+## 🏛️ Princípios SOLID Aplicados
 
-**Response:**
+### Single Responsibility Principle (SRP)
 
-```json
-{
-  "policy_request_id": "8a5c3e1b-9f2d-4a7e-b3c8-1d4e5f6a7b8c",
-  "status": "APPROVED",
-  "created_at": "2024-12-13T10:30:00Z",
-  "finished_at": "2024-12-13T10:32:15Z"
-}
-```
+- `PolicyProposal`: Responsável APENAS por gerenciar estado e transições
+- `PolicyValidationService`: Responsável APENAS por validar regras de limites
+- `PaymentConfirmationConsumer`: Responsável APENAS por processar eventos de pagamento
 
-## 🧪 Executando Testes
+### Open/Closed Principle (OCP)
 
+- Novos estados podem ser adicionados sem modificar lógica existente
+- Novas regras de validação podem ser adicionadas sem alterar outras
+
+### Liskov Substitution Principle (LSP)
+
+- Implementações de `OrderRepository` são substituíveis (MongoDB, em memória, etc.)
+
+### Interface Segregation Principle (ISP)
+
+- Ports específicas ao invés de uma interface genérica (`OrderRepository`, `OrderEventPort`, etc.)
+
+### Dependency Inversion Principle (DIP)
+
+- Domínio depende de interfaces (ports), não de implementações concretas
+- Inversão de controle via Spring
+
+---
+
+## 📋 Premissas e Decisões
+
+### Premissas de Negócio
+
+1. **Dual Confirmation**:
+   - Policy permanece **PENDING** até receber resposta de **AMBOS** microserviços
+   - Só aprova se **AMBAS** respostas forem positivas
+   - Só rejeita após receber **AMBAS** respostas (com pelo menos uma negativa)
+
+2. **Eventos fora de ordem**:
+   - Se uma confirmação chega antes da policy estar PENDING, ela é ignorada
+   - Não é permitido processar a mesma resposta (pagamento ou subscrição) duas vezes
+
+3. **Estados finais**: APPROVED, REJECTED e CANCELED são imutáveis
+
+4. **Cancelamento**: Permitido apenas antes de estados finais
+
+5. **Motivo de rejeição combinado**:
+   - Quando rejeitada, o histórico registra o motivo de **TODAS** as rejeições recebidas
+
+### Decisões Técnicas
+
+#### Por que JSON ao invés de Apache Avro?
+
+**Decisão**: Utilizar JSON para mensageria ao invés de Apache Avro.
+
+**Motivos**:
+1. **Tempo de desenvolvimento**: Avro requer setup de schema registry, geração de código, etc.
+2. **Facilidade de debug**: JSON é legível e facilmente inspecionável no RabbitMQ Management UI
+3. **Simplicidade**: Para o escopo do desafio, JSON é suficiente
+4. **Trade-off consciente**: Sabemos que Avro seria melhor para produção (performance, schema evolution)
+
+**Impacto**: Mensagens JSON são maiores e sem garantia de schema, mas facilitam desenvolvimento e testes.
+
+#### Por que RabbitMQ ao invés de Kafka ou SQS?
+
+**Decisão**: Utilizar RabbitMQ.
+
+**Motivos**:
+1. **Interface gráfica**: Management UI facilita visualização e debug
+2. **Setup local**: Mais simples que Kafka (sem Zookeeper, Schema Registry, etc.)
+3. **Adequação ao problema**: Volumes não justificam complexidade do Kafka
+4. **Familiaridade**: RabbitMQ é amplamente conhecido e bem documentado
+
+#### Docker Compose
+
+**Status**: ✅ Implementado
+
+**Infraestrutura completa** no arquivo `docker-compose.yaml`:
+- MongoDB 7.0
+- RabbitMQ 3.13 com Management UI
+- Kafka 7.5.0 com Zookeeper
+- Kafka UI para monitoramento
+- Network isolada para todos os serviços
+- Health checks configurados
+- Volumes persistentes para MongoDB
+
+**Uso**:
 ```bash
-# Executar todos os testes
-mvn test
-
-# Executar testes de um módulo específico
-cd order-application
-mvn test
-
-# Executar testes de arquitetura com ArchUnit
-cd order-application
-mvn test -Dtest=ArchitectureTest
+docker-compose up -d
 ```
 
-### Testes de Arquitetura
+**Nota**: A aplicação Java não está no docker-compose (executada via Maven/JAR), permitindo maior agilidade no desenvolvimento e debug.
 
-O projeto utiliza **ArchUnit** para garantir que as regras de arquitetura hexagonal sejam respeitadas:
+---
 
-- Validação de dependências entre módulos
-- Verificação de isolamento do domínio
-- Garantia de que adaptadores dependem apenas de portas
+## 📊 Estrutura de Módulos Maven
 
-## 📊 Padrões de Design Implementados
-
-- **Hexagonal Architecture (Ports and Adapters)** - Separação completa entre domínio e infraestrutura
-- **Event-Driven Architecture** - Processamento assíncrono com SQS e Kafka
-- **CQRS Simplificado** - Separação de comandos (API) e processamento (Consumer)
-- **Repository Pattern** - Abstração de persistência (MongoDB)
-- **Factory Method Pattern** - Criação de entidades de domínio através de métodos estáticos
-- **Builder Pattern** - Construção de objetos complexos (via Lombok @Builder)
-- **DTO Pattern** - Transferência de dados entre camadas
-- **Value Objects** - Objetos imutáveis de domínio (Money, PolicyRequestId)
-- **State Machine Pattern** - Controle de transições de estado da apólice
-- **Mapper Pattern** - Conversão entre DTOs e entidades de domínio
-- **Conditional Bean Registration** - Beans condicionais via @Profile
-
-## 🎯 Escalabilidade
-
-### Cenário 1: Alta demanda na API
-
-```bash
-# Escale apenas o profile API
-docker-compose up --scale api=5
+```
+case-emissao-apolice-seguros/
+│
+├── pom.xml (parent)
+│
+├── order-domain/              # Domínio puro (sem Spring)
+│   └── pom.xml
+│
+├── order-core/                # Use Cases e Ports
+│   └── pom.xml
+│
+├── order-adapters-in/         # Controllers, Consumers
+│   └── pom.xml
+│
+├── order-adapters-out/        # MongoDB, Mensageria
+│   └── pom.xml
+│
+├── order-application/         # Startup e Config
+│   └── pom.xml
+│
+└── order-component-test/      # Testes end-to-end
+    └── pom.xml
 ```
 
-### Cenário 2: Backlog na fila de fraude
+---
 
-```bash
-# Escale apenas o consumer
-docker-compose up --scale fraud-consumer=3
-```
+## 📚 Referências e Documentação Adicional
 
-### Cenário 3: Escala completa
+- [Clean Architecture - Robert C. Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Domain-Driven Design - Eric Evans](https://www.domainlanguage.com/ddd/)
+- [RabbitMQ Documentation](https://www.rabbitmq.com/documentation.html)
+- [Spring AMQP](https://spring.io/projects/spring-amqp)
 
-```bash
-# Escale ambos independentemente
-docker-compose up --scale api=3 --scale fraud-consumer=5
-```
-
-## 📈 Monitoramento
-
-### Endpoints do Spring Actuator
-
-**Profile API (porta 8080):**
-
-- `/actuator/health` - Status da aplicação e dependências (MongoDB, SQS)
-- `/actuator/info` - Informações da aplicação
-- `/actuator/metrics` - Métricas da aplicação
-
-**Profile Fraud Consumer (porta 8081):**
-
-- `/actuator/health` - Status da aplicação e dependências (MongoDB, SQS, Kafka)
-- `/actuator/metrics` - Métricas da aplicação
-
-### Kafka UI
-
-Acesse `http://localhost:8090` para visualizar:
-
-- Tópicos Kafka
-- Mensagens publicadas
-- Consumer groups
-- Partições e offsets
-
-### Monitoramento de SQS
-
-```bash
-# Listar filas
-aws --endpoint-url=http://localhost:4566 sqs list-queues
-
-# Ver atributos da fila
-aws --endpoint-url=http://localhost:4566 sqs get-queue-attributes \
-  --queue-url http://localhost:4566/000000000000/order-service-fraud-consumer \
-  --attribute-names All
-```
-
-📖 **Guia completo de monitoramento**: [MONITORING.md](MONITORING.md)
-
-## 📝 Regras de Negócio
-
-### Transições de Estado
-
-- ✅ Apólices são criadas no estado **RECEIVED**
-- ✅ Apenas transições válidas são permitidas
-- ✅ Estados finais (**APPROVED**, **REJECTED**, **CANCELED**) não podem ser alterados
-- ✅ Cancelamento só é permitido antes de atingir estado final
-
-### Validações
-
-- ✅ **Análise de Fraude** - Integração com API de análise de fraude (mock)
-- ✅ **Classificação de Risco** - 4 categorias (REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION)
-- ✅ **Validação de Limites** - 16 regras diferentes (4 classificações × 4 categorias principais)
-- ✅ **Validação de Categoria** - Verificação de categoria de seguro
-- ✅ **Validação de Capital Segurado** - Limites por categoria e classificação
-
-### Processamento Assíncrono
-
-- ✅ API recebe requisição e persiste com status **RECEIVED**
-- ✅ Mensagem enviada para SQS para processamento
-- ✅ Consumer processa análise de fraude de forma assíncrona
-- ✅ Status atualizado para **APPROVED** ou **REJECTED**
-- ✅ Apólices aprovadas publicadas no Kafka para downstream
-
-### Histórico
-
-- ✅ Todas as alterações de estado são registradas
-- ✅ Cada entrada do histórico contém: status, timestamp e motivo (quando aplicável)
-- ✅ Histórico imutável e auditável
-
-## 📚 Documentação Adicional
-
-- [PROFILES.md](PROFILES.md) - Arquitetura detalhada de profiles
-- [MONITORING.md](MONITORING.md) - Guia de monitoramento de Kafka e SQS
+---
 
 ## 🤝 Contribuindo
 
-1. Faça um fork do projeto
+1. Fork o projeto
 2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
 3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
 4. Push para a branch (`git push origin feature/AmazingFeature`)
 5. Abra um Pull Request
 
+---
+
 ## 📄 Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-## 👥 Autores
+---
 
-- **Athirson de Oliveira** - *Desenvolvimento Inicial*
+## 👥 Autor
 
-## 📞 Contato
+**Athirson de Oliveira** - *Desenvolvimento Inicial*
 
 - Email: athirson.candido@bandtec.com.br
 - LinkedIn: [Athirson-Oliveira](https://br.linkedin.com/in/athirson-oliveira)
+
+---
+
+## ✅ Checklist de Validação
+
+Este projeto atende aos seguintes requisitos do desafio técnico:
+
+- [x] Todas as transições de estado respeitam validation-rules.json
+- [x] Estados finais são imutáveis
+- [x] **Dual Confirmation**: Policy só decide status final após receber AMBAS respostas
+- [x] Policy só é APPROVED quando AMBAS respostas (pagamento E subscrição) são positivas
+- [x] Policy é REJECTED quando AMBAS respostas chegam e PELO MENOS UMA é negativa
+- [x] Policy permanece PENDING enquanto aguarda qualquer uma das respostas
+- [x] Transições inválidas são rejeitadas com InvalidTransitionException
+- [x] Não permite processar a mesma resposta (pagamento/subscrição) duas vezes
+- [x] Templates substituem completamente TestDataFixtures
+- [x] README reflete fielmente o código e arquitetura
+- [x] 16 regras de validação implementadas e testadas (100% cobertura)
+- [x] Consumers de pagamento e seguro funcionais com nova lógica
+- [x] Histórico completo de transições registrado com motivos combinados
+- [x] Clean Architecture implementada
+- [x] Princípios SOLID aplicados
+- [x] Design Patterns documentados e justificados
+- [x] Testes de componentes cobrindo ciclo de vida completo
+- [x] 17 novos testes unitários para Dual Confirmation
+- [x] Mensageria documentada com exemplos de uso
+- [x] Premissas e limitações claramente documentadas
 
 ---
 

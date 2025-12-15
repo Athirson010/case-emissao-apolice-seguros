@@ -63,31 +63,23 @@ public class SubscriptionConfirmationConsumer {
 
         Instant now = Instant.now();
 
-        if (event.isApproved()) {
-            log.info("Subscrição APROVADA. PolicyId={}, SubscriptionId={}",
-                    policyId.asString(),
-                    event.getSubscriptionId());
+        // Processa a resposta da subscrição (aprovada ou rejeitada)
+        boolean approved = event.isApproved();
+        String rejectionReason = event.getRejectionReason();
 
-            policyProposal.confirmSubscription(now);
+        log.info("Processando resposta de SUBSCRIÇÃO. PolicyId={}, Status={}, SubscriptionId={}",
+                policyId.asString(),
+                approved ? "APPROVED" : "REJECTED",
+                event.getSubscriptionId());
 
-            orderRepository.save(policyProposal);
+        // Nova lógica: só aprova/rejeita quando AMBAS respostas chegarem
+        policyProposal.processSubscriptionResponse(approved, rejectionReason, now);
 
-            log.info("Confirmação de subscrição processada. PolicyId={}, Status={}",
-                    policyId.asString(),
-                    policyProposal.getStatus());
+        orderRepository.save(policyProposal);
 
-        } else if (event.isRejected()) {
-            log.info("Subscrição REJEITADA. PolicyId={}, Motivo={}",
-                    policyId.asString(),
-                    event.getRejectionReason());
-
-            String reason = String.format("Subscrição rejeitada: %s", event.getRejectionReason());
-            policyProposal.reject(reason, now);
-
-            orderRepository.save(policyProposal);
-
-            log.info("Proposta rejeitada por falha na subscrição. PolicyId={}", policyId.asString());
-        }
+        log.info("Resposta de subscrição processada. PolicyId={}, Status final={}",
+                policyId.asString(),
+                policyProposal.getStatus());
     }
 
     private SubscriptionConfirmationEvent deserializeMessage(String messageBody)
