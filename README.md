@@ -4,10 +4,6 @@
 
 ![Itaú App](docs/itau-app.jpeg)
 
-## Diagrama de Solução
-
-![Diagrama de Solução](docs/diagrama.png)
-
 [![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2+-green.svg)](https://spring.io/projects/spring-boot)
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green.svg)](https://www.mongodb.com/)
