@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -31,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 5. Validação de estados finais imutáveis
  * 6. Histórico completo de transições
  */
+@ActiveProfiles({"test", "api", "order-consumer", "order-response-payment-consumer", "order-response-insurance-consumer"})
 @DisplayName("Ciclo de Vida Completo da Apólice - Testes de Componente")
 public class PolicyLifecycleComponentTest extends BaseComponentTest {
 

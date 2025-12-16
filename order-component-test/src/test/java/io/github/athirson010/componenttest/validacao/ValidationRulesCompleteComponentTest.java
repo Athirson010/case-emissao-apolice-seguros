@@ -15,6 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -39,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 2. Valor NO limite → deve APROVAR
  * 3. Valor ACIMA do limite → deve REJEITAR
  */
+@ActiveProfiles({"test", "order-consumer"})
 @DisplayName("Regras de Validação Completas - 100% Cobertura validation-rules.json")
 public class ValidationRulesCompleteComponentTest extends BaseComponentTest {
 

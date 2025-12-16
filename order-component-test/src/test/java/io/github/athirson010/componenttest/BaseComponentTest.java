@@ -9,6 +9,7 @@ import io.github.athirson010.core.port.out.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -24,6 +25,7 @@ import org.springframework.test.context.ActiveProfiles;
                         "org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration"
         }
 )
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 public abstract class BaseComponentTest {
 

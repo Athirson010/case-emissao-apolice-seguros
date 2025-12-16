@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ActiveProfiles({"test", "order-consumer"})
+@ActiveProfiles({"test", "order-consumer", "order-response-payment-consumer"})
 @DisplayName("Entrada Mensageria - Confirmação de Pagamento")
 class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
 
@@ -101,8 +101,8 @@ class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
     }
 
     @Test
-    @DisplayName("Deve ignorar pagamento para proposta que não está em PENDING")
-    void deveIgnorarPagamentoParaPropostaNaoPending() {
+    @DisplayName("Deve lançar exceção ao tentar processar pagamento para proposta que não está em PENDING ou REJECTED")
+    void deveLancarExcecaoAoProcessarPagamentoParaPropostaNaoPending() {
         // Given - Proposta em estado RECEIVED (não PENDING)
         PolicyProposal propostaReceived = PolicyProposal.builder()
                 .id(idSolicitacao)
@@ -121,10 +121,12 @@ class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
                 }
                 """, idSolicitacao.asString());
 
-        // When - Consumer processa mensagem
-        paymentConfirmationConsumer.consumePaymentConfirmation(mensagemPagamento);
+        // When & Then - Consumer deve lançar exceção
+        assertThrows(Exception.class, () -> {
+            paymentConfirmationConsumer.consumePaymentConfirmation(mensagemPagamento);
+        });
 
-        // Then - Repository foi consultado mas NÃO salvou (proposta não estava em PENDING)
+        // Repository foi consultado mas não salvou devido à exceção
         verify(orderRepository, times(1)).findById(idSolicitacao);
         verify(orderRepository, never()).save(any(PolicyProposal.class));
     }
@@ -185,5 +187,39 @@ class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
             // Then - Verifica que foi processado
             verify(orderRepository, atLeastOnce()).findById(idSolicitacao);
         }
+    }
+
+    @Test
+    @DisplayName("Deve aplicar rejeição imediata quando pagamento é rejeitado")
+    void deveAplicarRejeicaoImediataQuandoPagamentoRejeitado() {
+        // Given - Proposta em estado PENDING
+        PolicyProposal propostaPending = PolicyProposal.builder()
+                .id(idSolicitacao)
+                .status(PolicyStatus.PENDING)
+                .createdAt(Instant.now())
+                .paymentResponseReceived(false)
+                .subscriptionResponseReceived(false)
+                .build();
+
+        when(orderRepository.findById(any()))
+                .thenReturn(Optional.of(propostaPending));
+
+        String mensagemPagamentoRejeitado = String.format("""
+                {
+                    "policy_request_id": "%s",
+                    "payment_status": "REJECTED",
+                    "rejection_reason": "Cartão sem saldo",
+                    "payment_timestamp": "2024-01-15T10:45:00Z"
+                }
+                """, idSolicitacao.asString());
+
+        // When - Consumer processa rejeição de pagamento
+        paymentConfirmationConsumer.consumePaymentConfirmation(mensagemPagamentoRejeitado);
+
+        // Then - Status deve mudar para REJECTED imediatamente
+        verify(orderRepository, times(1)).findById(idSolicitacao);
+        verify(orderRepository, times(1)).save(argThat(policy ->
+            policy.getStatus() == PolicyStatus.REJECTED
+        ));
     }
 }

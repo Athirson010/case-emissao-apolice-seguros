@@ -307,7 +307,7 @@ class PolicyProposalTest {
         // When/Then
         assertThatThrownBy(() -> policyProposal.confirmPayment(Instant.now()))
                 .isInstanceOf(InvalidTransitionException.class)
-                .hasMessageContaining("Cannot confirm payment");
+                .hasMessageContaining("Cannot process payment response");
     }
 
     @Test
@@ -316,7 +316,7 @@ class PolicyProposalTest {
         // When/Then
         assertThatThrownBy(() -> policyProposal.confirmSubscription(Instant.now()))
                 .isInstanceOf(InvalidTransitionException.class)
-                .hasMessageContaining("Cannot confirm subscription");
+                .hasMessageContaining("Cannot process subscription response");
     }
 
     @Test
