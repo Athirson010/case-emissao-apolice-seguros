@@ -8,6 +8,11 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2+-green.svg)](https://spring.io/projects/spring-boot)
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green.svg)](https://www.mongodb.com/)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-orange.svg)](https://www.rabbitmq.com/)
+[![Kafka](https://img.shields.io/badge/Kafka-7.5.0-black.svg)](https://kafka.apache.org/)
+[![Grafana](https://img.shields.io/badge/Grafana-10.2.3-orange.svg)](https://grafana.com/)
+[![Loki](https://img.shields.io/badge/Loki-2.9.3-yellow.svg)](https://grafana.com/oss/loki/)
+[![Tempo](https://img.shields.io/badge/Tempo-2.3.1-purple.svg)](https://grafana.com/oss/tempo/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-2.48.1-red.svg)](https://prometheus.io/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
@@ -853,6 +858,94 @@ docker-compose up -d
 
 **Nota**: A aplicação Java não está no docker-compose (executada via Maven/JAR), permitindo maior agilidade no desenvolvimento e debug.
 
+#### Observabilidade (Grafana Stack)
+
+**Status**: ✅ **IMPLEMENTADO E CONFIGURADO**
+
+A aplicação está totalmente integrada com o Grafana Stack (LGTM):
+
+**Stack de Observabilidade** no arquivo `docker-compose.observability.yaml`:
+- **Grafana 10.2.3** (porta 3000) - Dashboards unificados
+- **Loki 2.9.3** (porta 3100) - Agregação de logs
+- **Tempo 2.3.1** (porta 3200) - Distributed tracing
+- **Prometheus 2.48.1** (porta 9090) - Métricas
+- **Promtail 2.9.3** (porta 9080) - Coleta de logs
+
+**Integração da Aplicação**:
+
+✅ **Métricas (Prometheus)**:
+- Endpoint: `http://localhost:8080/actuator/prometheus`
+- Dependência: `micrometer-registry-prometheus`
+- Coleta automática: Prometheus scrape a cada 15s
+
+✅ **Traces (Tempo)**:
+- OpenTelemetry OTLP exportando para `http://localhost:4318/v1/traces`
+- Dependências: `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp`
+- Sampling: 100% (development)
+- Trace ID e Span ID incluídos nos logs
+
+✅ **Logs (Loki)**:
+- Logs estruturados em JSON enviados para `http://localhost:3100/loki/api/v1/push`
+- Dependência: `loki-logback-appender`
+- Labels: `app=order-service`, `host=<hostname>`, `level=<log-level>`
+- Correlação: Trace ID incluído em cada log
+
+**Como Usar**:
+
+1. **Iniciar Stack de Observabilidade**:
+```bash
+docker-compose -f docker-compose.observability.yaml up -d
+```
+
+2. **Iniciar Aplicação**:
+```bash
+mvn spring-boot:run
+```
+
+3. **Acessar Grafana**: http://localhost:3000
+   - Usuário: `admin`
+   - Senha: `admin`
+
+4. **Verificar Integração**:
+```bash
+# Métricas
+curl http://localhost:8080/actuator/prometheus
+
+# Traces (após fazer algumas requisições)
+# Grafana → Explore → Tempo → Search
+
+# Logs
+# Grafana → Explore → Loki → Query: {app="order-service"}
+```
+
+**Queries Úteis**:
+
+**Loki (Logs)**:
+```logql
+# Todos os logs da aplicação
+{app="order-service"}
+
+# Apenas erros
+{app="order-service"} |= "ERROR"
+
+# Logs de uma policy específica
+{app="order-service"} |= "policyId=123"
+```
+
+**Prometheus (Métricas)**:
+```promql
+# Taxa de requisições HTTP
+rate(http_server_requests_seconds_count[5m])
+
+# Latência P95
+histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m]))
+
+# Uso de memória JVM
+jvm_memory_used_bytes{area="heap"}
+```
+
+**Documentação Completa**: Ver `observability/README.md`
+
 ---
 
 ## 📊 Estrutura de Módulos Maven
@@ -945,6 +1038,11 @@ Este projeto atende aos seguintes requisitos do desafio técnico:
 - [x] Testes cobrem todos os cenários: ambas aprovadas, ambas rejeitadas, uma aprovada + outra rejeitada
 - [x] Mensageria documentada com exemplos de uso
 - [x] Premissas e limitações claramente documentadas
+- [x] **Observabilidade Completa**: Logs, Traces e Métricas integrados com Grafana Stack
+- [x] Métricas expostas via `/actuator/prometheus` e coletadas pelo Prometheus
+- [x] Traces enviados para Tempo via OpenTelemetry OTLP
+- [x] Logs estruturados em JSON enviados para Loki com Trace ID
+- [x] Grafana configurado com datasources automáticos (Prometheus, Loki, Tempo)
 
 ---
 
