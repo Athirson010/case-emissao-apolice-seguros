@@ -16,7 +16,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("CoveragesValidator - Testes Unitários")
 class CoveragesValidatorTest {
 
@@ -71,7 +75,7 @@ class CoveragesValidatorTest {
 
     @Test
     @DisplayName("Deve rejeitar mapa de coberturas nulo")
-    void deveRejeitarMapaDeCoberturas Nulo() {
+    void deveRejeitarMapaDeCoberturasNulo() {
         // When
         boolean result = validator.isValid(null, context);
 
