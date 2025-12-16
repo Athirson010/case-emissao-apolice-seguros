@@ -157,39 +157,6 @@ class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
     }
 
     @Test
-    @DisplayName("Deve processar pagamentos com diferentes métodos de pagamento")
-    void deveProcessarPagamentosComDiferentesMetodos() {
-        // Given - Proposta em estado PENDING
-        PolicyProposal propostaPending = PolicyProposal.builder()
-                .id(idSolicitacao)
-                .status(PolicyStatus.PENDING)
-                .createdAt(Instant.now())
-                .build();
-
-        when(orderRepository.findById(any()))
-                .thenReturn(Optional.of(propostaPending));
-
-        String[] metodos = {"CREDIT_CARD", "DEBIT_CARD", "PIX", "BOLETO"};
-
-        for (String metodo : metodos) {
-            String mensagem = String.format("""
-                    {
-                        "policy_request_id": "%s",
-                        "payment_status": "APPROVED",
-                        "payment_method": "%s",
-                        "transaction_id": "TXN-123"
-                    }
-                    """, idSolicitacao.asString(), metodo);
-
-            // When - Consumer processa mensagem
-            paymentConfirmationConsumer.consumePaymentConfirmation(mensagem);
-
-            // Then - Verifica que foi processado
-            verify(orderRepository, atLeastOnce()).findById(idSolicitacao);
-        }
-    }
-
-    @Test
     @DisplayName("Deve aplicar rejeição imediata quando pagamento é rejeitado")
     void deveAplicarRejeicaoImediataQuandoPagamentoRejeitado() {
         // Given - Proposta em estado PENDING

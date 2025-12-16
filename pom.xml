@@ -34,14 +34,13 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <spring-boot.version>3.2.1</spring-boot.version>
+        <spring-boot.version>3.1.2</spring-boot.version>
         <spring-cloud-aws.version>3.1.0</spring-cloud-aws.version>
         <aws-sdk.version>2.20.26</aws-sdk.version>
         <spring-kafka.version>3.1.1</spring-kafka.version>
         <archunit.version>1.2.1</archunit.version>
         <junit.version>5.10.1</junit.version>
         <lombok.version>1.18.30</lombok.version>
-        <avro.version>1.11.3</avro.version>
 
         <!-- SonarQube -->
         <sonar.host.url>http://localhost:9000</sonar.host.url>
@@ -132,12 +131,6 @@
                 <artifactId>archunit-junit5</artifactId>
                 <version>${archunit.version}</version>
                 <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.avro</groupId>
-                <artifactId>avro</artifactId>
-                <version>${avro.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

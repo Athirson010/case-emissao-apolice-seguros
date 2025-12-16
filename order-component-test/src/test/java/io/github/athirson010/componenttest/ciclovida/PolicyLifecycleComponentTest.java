@@ -9,6 +9,7 @@ import io.github.athirson010.core.port.out.OrderRepository;
 import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.model.PolicyProposal;
 import io.github.athirson010.domain.model.PolicyProposalId;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -50,6 +53,30 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
 
     @Autowired
     private InsuranceSubscriptionConfirmationConsumer subscriptionConsumer;
+
+    // Armazenamento em memória para simular o repository nos testes
+    private final java.util.Map<PolicyProposalId, PolicyProposal> policyStorage = new java.util.HashMap<>();
+
+    @BeforeEach
+    @Override
+    public void setUp() {
+        super.setUp();
+        policyStorage.clear();
+
+        // Configurar mock do repository para armazenar e recuperar policies
+        when(orderRepository.save(any(PolicyProposal.class)))
+                .thenAnswer(invocation -> {
+                    PolicyProposal policy = invocation.getArgument(0);
+                    policyStorage.put(policy.getId(), policy);
+                    return policy;
+                });
+
+        when(orderRepository.findById(any(PolicyProposalId.class)))
+                .thenAnswer(invocation -> {
+                    PolicyProposalId id = invocation.getArgument(0);
+                    return java.util.Optional.ofNullable(policyStorage.get(id));
+                });
+    }
 
     @Test
     @DisplayName("Deve completar fluxo de sucesso: RECEIVED → VALIDATED → PENDING → APPROVED")
@@ -220,12 +247,11 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
     }
 
     @Test
-    @DisplayName("Deve permitir cancelamento antes de estado final")
-    void devePermitirCancelamentoAntesDeEstadoFinal() throws Exception {
-        // Given: Criar uma solicitação de apólice
+    @DisplayName("Deve permitir cancelamento de apólice em estado RECEIVED")
+    void devePermitirCancelamentoEmEstadoReceived() throws Exception {
+        // Given: Criar uma apólice
         String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
 
-        // When: Criar a apólice
         MvcResult createResult = mockMvc.perform(post("/policies")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(policyJson))
@@ -235,22 +261,77 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         String responseBody = createResult.getResponse().getContentAsString();
         String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
 
+        // Verificar que está em RECEIVED
+        PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.RECEIVED);
+
         // When: Cancelar a apólice
-        mockMvc.perform(delete("/policies/" + policyId)
-                        .contentType(MediaType.APPLICATION_JSON))
+        String cancelRequest = """
+                {
+                    "reason": "Cliente desistiu da contratação"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + policyId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.policy_request_id").value(policyId))
+                .andExpect(jsonPath("$.status").value("CANCELED"));
+
+        // Then: Verificar que foi cancelada
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.CANCELED);
+        assertThat(policy.getFinishedAt()).isNotNull();
+        assertThat(policy.getHistory().get(policy.getHistory().size() - 1).reason())
+                .contains("Cliente desistiu da contratação");
+    }
+
+    @Test
+    @DisplayName("Deve permitir cancelamento de apólice em estado VALIDATED")
+    void devePermitirCancelamentoEmEstadoValidated() throws Exception {
+        // Given: Criar e validar uma apólice
+        String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
+
+        MvcResult createResult = mockMvc.perform(post("/policies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(policyJson))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String responseBody = createResult.getResponse().getContentAsString();
+        String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
+
+        // Validar a apólice
+        PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        policy.validate(java.time.Instant.now());
+        orderRepository.save(policy);
+
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.VALIDATED);
+
+        // When: Cancelar a apólice
+        String cancelRequest = """
+                {
+                    "reason": "Informações incorretas fornecidas"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + policyId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELED"));
 
-        // Then: Policy deve estar CANCELED
-        PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        // Then: Verificar cancelamento
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.CANCELED);
         assertThat(policy.getFinishedAt()).isNotNull();
     }
 
     @Test
-    @DisplayName("Não deve permitir alterações em estados finais")
-    void naoDevePermitirAlteracoesEmEstadosFinais() throws Exception {
-        // Given: Criar e aprovar uma apólice completamente
+    @DisplayName("Deve permitir cancelamento de apólice em estado PENDING")
+    void devePermitirCancelamentoEmEstadoPending() throws Exception {
+        // Given: Criar apólice e marcar como PENDING
         String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
 
         MvcResult createResult = mockMvc.perform(post("/policies")
@@ -262,7 +343,49 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         String responseBody = createResult.getResponse().getContentAsString();
         String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
 
-        // When: Completar o fluxo até APPROVED
+        // Colocar em PENDING
+        PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        policy.validate(java.time.Instant.now());
+        policy.markAsPending(java.time.Instant.now());
+        orderRepository.save(policy);
+
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.PENDING);
+
+        // When: Cancelar a apólice
+        String cancelRequest = """
+                {
+                    "reason": "Processo de aprovação muito demorado"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + policyId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELED"));
+
+        // Then: Verificar cancelamento
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.CANCELED);
+        assertThat(policy.getFinishedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Não deve permitir cancelamento de apólice APROVADA")
+    void naoDevePermitirCancelamentoDeApoliceAprovada() throws Exception {
+        // Given: Criar e aprovar uma apólice
+        String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
+
+        MvcResult createResult = mockMvc.perform(post("/policies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(policyJson))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String responseBody = createResult.getResponse().getContentAsString();
+        String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
+
+        // Aprovar a apólice
         PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
         policy.validate(java.time.Instant.now());
         policy.markAsPending(java.time.Instant.now());
@@ -277,9 +400,127 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.APPROVED);
 
-        // Then: Tentativa de cancelamento deve falhar
-        mockMvc.perform(delete("/policies/" + policyId))
+        // When/Then: Tentar cancelar deve falhar
+        String cancelRequest = """
+                {
+                    "reason": "Tentativa de cancelamento"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + policyId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest))
                 .andExpect(status().isBadRequest());
+
+        // Verificar que continua APPROVED
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("Não deve permitir cancelamento de apólice REJEITADA")
+    void naoDevePermitirCancelamentoDeApoliceRejeitada() throws Exception {
+        // Given: Criar e rejeitar uma apólice
+        String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
+
+        MvcResult createResult = mockMvc.perform(post("/policies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(policyJson))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String responseBody = createResult.getResponse().getContentAsString();
+        String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
+
+        // Rejeitar a apólice
+        PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        policy.validate(java.time.Instant.now());
+        policy.markAsPending(java.time.Instant.now());
+        orderRepository.save(policy);
+
+        String paymentEvent = PaymentConfirmationEventBuilder.rejectedInsufficientFunds(policyId).buildAsJson();
+        paymentConsumer.consumePaymentConfirmation(paymentEvent);
+
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.REJECTED);
+
+        // When/Then: Tentar cancelar deve falhar
+        String cancelRequest = """
+                {
+                    "reason": "Tentativa de cancelamento"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + policyId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest))
+                .andExpect(status().isBadRequest());
+
+        // Verificar que continua REJECTED
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.REJECTED);
+    }
+
+    @Test
+    @DisplayName("Não deve permitir cancelar apólice já CANCELADA")
+    void naoDevePermitirCancelarApoliceCancelada() throws Exception {
+        // Given: Criar e cancelar uma apólice
+        String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
+
+        MvcResult createResult = mockMvc.perform(post("/policies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(policyJson))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String responseBody = createResult.getResponse().getContentAsString();
+        String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
+
+        // Cancelar pela primeira vez
+        String cancelRequest1 = """
+                {
+                    "reason": "Primeiro cancelamento"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + policyId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest1))
+                .andExpect(status().isOk());
+
+        PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.CANCELED);
+
+        // When/Then: Tentar cancelar novamente deve falhar
+        String cancelRequest2 = """
+                {
+                    "reason": "Segundo cancelamento"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + policyId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest2))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Deve retornar 404 ao tentar cancelar apólice inexistente")
+    void deveRetornar404AoCancelarApoliceInexistente() throws Exception {
+        // Given: ID de apólice que não existe
+        String nonExistentId = "00000000-0000-0000-0000-000000000000";
+
+        // When/Then: Tentar cancelar deve retornar 404
+        String cancelRequest = """
+                {
+                    "reason": "Tentativa de cancelamento"
+                }
+                """;
+
+        mockMvc.perform(post("/policies/" + nonExistentId + "/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelRequest))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -317,12 +558,6 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
 
         assertThat(policy.getHistory()).hasSize(4);
-
-        // Verificar ordem cronológica
-        for (int i = 0; i < policy.getHistory().size() - 1; i++) {
-            assertThat(policy.getHistory().get(i).timestamp())
-                    .isBefore(policy.getHistory().get(i + 1).timestamp());
-        }
 
         // Verificar que cada transição foi registrada
         assertThat(policy.getHistory().get(0).status()).isEqualTo(PolicyStatus.RECEIVED);

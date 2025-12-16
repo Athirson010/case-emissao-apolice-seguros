@@ -54,13 +54,6 @@ public class InsuranceSubscriptionConfirmationConsumer {
                 policyId.asString(),
                 policyProposal.getStatus());
 
-        if (policyProposal.getStatus() != PolicyStatus.PENDING) {
-            log.warn("Proposta não está em estado PENDING. PolicyId={}, Status={}",
-                    policyId.asString(),
-                    policyProposal.getStatus());
-            return;
-        }
-
         Instant now = Instant.now();
 
         // Processa a resposta da subscrição de seguro (aprovada ou rejeitada)
