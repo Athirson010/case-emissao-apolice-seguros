@@ -47,7 +47,8 @@
         <sonar.projectKey>emissao-apolice-seguros</sonar.projectKey>
         <sonar.projectName>Sistema de Emissão de Apólices de Seguros</sonar.projectName>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
-        <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml
+        </sonar.coverage.jacoco.xmlReportPaths>
         <jacoco.version>0.8.11</jacoco.version>
     </properties>
 

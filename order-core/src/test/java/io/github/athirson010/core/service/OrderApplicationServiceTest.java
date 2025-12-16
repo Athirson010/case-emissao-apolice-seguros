@@ -171,8 +171,8 @@ class OrderApplicationServiceTest {
         // Given
         policyProposal.validate(java.time.Instant.now());
         policyProposal.markAsPending(java.time.Instant.now());
-        policyProposal.confirmPayment(java.time.Instant.now());
-        policyProposal.confirmSubscription(java.time.Instant.now());
+        policyProposal.processPaymentResponse(true, null, java.time.Instant.now());
+        policyProposal.processSubscriptionResponse(true, null, java.time.Instant.now());
         when(orderRepository.findById(policyId)).thenReturn(Optional.of(policyProposal));
 
         // When/Then
@@ -198,21 +198,5 @@ class OrderApplicationServiceTest {
 
         verify(orderRepository, times(1)).findById(policyId);
         verify(orderRepository, never()).save(any(PolicyProposal.class));
-    }
-
-    @Test
-    @DisplayName("Deve buscar proposta por ID do cliente")
-    void deveBuscarPropostaPorIdDoCliente() {
-        // Given
-        UUID customerId = UUID.randomUUID();
-        when(orderRepository.findByCustomerId(customerId)).thenReturn(Optional.of(policyProposal));
-
-        // When
-        Optional<PolicyProposal> result = orderApplicationService.findPolicyRequestByCustomerId(customerId);
-
-        // Then
-        assertThat(result).isPresent();
-
-        verify(orderRepository, times(1)).findByCustomerId(customerId);
     }
 }

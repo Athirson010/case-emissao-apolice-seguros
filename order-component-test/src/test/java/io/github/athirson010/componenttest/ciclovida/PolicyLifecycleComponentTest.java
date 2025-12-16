@@ -1,10 +1,12 @@
 package io.github.athirson010.componenttest.ciclovida;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.athirson010.adapters.in.messaging.rabbitmq.PaymentConfirmationConsumer;
 import io.github.athirson010.adapters.in.messaging.rabbitmq.InsuranceSubscriptionConfirmationConsumer;
+import io.github.athirson010.adapters.in.messaging.rabbitmq.PaymentConfirmationConsumer;
 import io.github.athirson010.componenttest.BaseComponentTest;
-import io.github.athirson010.componenttest.templates.*;
+import io.github.athirson010.componenttest.templates.PaymentConfirmationEventBuilder;
+import io.github.athirson010.componenttest.templates.PolicyRequestTemplateBuilder;
+import io.github.athirson010.componenttest.templates.SubscriptionConfirmationEventBuilder;
 import io.github.athirson010.core.port.out.OrderRepository;
 import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.model.PolicyProposal;
@@ -21,12 +23,13 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Teste de componente do ciclo de vida completo de uma apólice.
- *
+ * <p>
  * Cenários testados:
  * 1. Fluxo de sucesso: RECEIVED → VALIDATED → PENDING → APPROVED
  * 2. Rejeição por pagamento negado

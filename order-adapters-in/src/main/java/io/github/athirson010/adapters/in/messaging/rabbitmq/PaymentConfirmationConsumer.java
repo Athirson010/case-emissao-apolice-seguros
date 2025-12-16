@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.athirson010.adapters.in.messaging.dto.PaymentConfirmationEvent;
 import io.github.athirson010.core.port.out.OrderRepository;
-import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.model.PolicyProposal;
 import io.github.athirson010.domain.model.PolicyProposalId;
 import lombok.RequiredArgsConstructor;

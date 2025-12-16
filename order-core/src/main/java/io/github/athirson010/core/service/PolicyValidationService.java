@@ -10,11 +10,26 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
+/**
+ * Serviço de validação de apólices baseado nas regras de capital segurado por classificação de risco.
+ * Implementa as 16 regras de validação definidas em validation-rules.json:
+ * - 4 classificações de risco (REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION)
+ * - 5 categorias (AUTO, VIDA, RESIDENCIAL, EMPRESARIAL, OUTROS)
+ * - Limites de capital segurado específicos para cada combinação
+ */
 @Slf4j
 @Profile("order-consumer")
 @Service
 public class PolicyValidationService {
 
+    /**
+     * Valida uma proposta de apólice baseado na classificação de risco do cliente.
+     * Aplica as regras de limite de capital segurado conforme validation-rules.json.
+     *
+     * @param policyProposal proposta a ser validada
+     * @param classification classificação de risco do cliente
+     * @return true se a proposta está dentro dos limites permitidos, false caso contrário
+     */
     public boolean validatePolicy(PolicyProposal policyProposal, RiskClassification classification) {
         log.info("Validando apólice {} com classificação {}",
                 policyProposal.getId().asString(), classification);
@@ -33,6 +48,18 @@ public class PolicyValidationService {
         return isValid;
     }
 
+    /**
+     * Valida limites para cliente REGULAR.
+     * Regras (validation-rules.json):
+     * - VIDA, RESIDENCIAL: <= R$ 500.000
+     * - AUTO: <= R$ 350.000
+     * - EMPRESARIAL: <= R$ 255.000
+     * - OUTROS: <= R$ 100.000
+     *
+     * @param insuredAmount valor do capital segurado
+     * @param category      categoria da apólice
+     * @return true se dentro do limite, false se exceder
+     */
     private boolean validateRegularCustomer(Money insuredAmount, Category category) {
         BigDecimal amount = insuredAmount.amount();
 
@@ -44,6 +71,18 @@ public class PolicyValidationService {
         };
     }
 
+    /**
+     * Valida limites para cliente HIGH_RISK (alto risco).
+     * Regras (validation-rules.json):
+     * - AUTO: <= R$ 250.000
+     * - RESIDENCIAL: <= R$ 150.000
+     * - VIDA, EMPRESARIAL: <= R$ 125.000
+     * - OUTROS: <= R$ 50.000
+     *
+     * @param insuredAmount valor do capital segurado
+     * @param category      categoria da apólice
+     * @return true se dentro do limite, false se exceder
+     */
     private boolean validateHighRiskCustomer(Money insuredAmount, Category category) {
         BigDecimal amount = insuredAmount.amount();
 
@@ -55,6 +94,20 @@ public class PolicyValidationService {
         };
     }
 
+    /**
+     * Valida limites para cliente PREFERENTIAL (preferencial).
+     * Regras (validation-rules.json):
+     * - VIDA: < R$ 800.000 (estritamente menor)
+     * - AUTO, RESIDENCIAL: < R$ 450.000 (estritamente menor)
+     * - EMPRESARIAL: <= R$ 375.000
+     * - OUTROS: <= R$ 300.000
+     * <p>
+     * IMPORTANTE: Operador < (estritamente menor) para VIDA, AUTO e RESIDENCIAL.
+     *
+     * @param insuredAmount valor do capital segurado
+     * @param category      categoria da apólice
+     * @return true se dentro do limite, false se exceder
+     */
     private boolean validatePreferentialCustomer(Money insuredAmount, Category category) {
         BigDecimal amount = insuredAmount.amount();
 
@@ -66,6 +119,18 @@ public class PolicyValidationService {
         };
     }
 
+    /**
+     * Valida limites para cliente NO_INFORMATION (sem informações de histórico).
+     * Regras (validation-rules.json):
+     * - VIDA, RESIDENCIAL: <= R$ 200.000
+     * - AUTO: <= R$ 75.000
+     * - EMPRESARIAL: <= R$ 55.000
+     * - OUTROS: <= R$ 30.000
+     *
+     * @param insuredAmount valor do capital segurado
+     * @param category      categoria da apólice
+     * @return true se dentro do limite, false se exceder
+     */
     private boolean validateNoInformationCustomer(Money insuredAmount, Category category) {
         BigDecimal amount = insuredAmount.amount();
 

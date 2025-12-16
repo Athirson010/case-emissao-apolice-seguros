@@ -1,19 +1,20 @@
 # 📊 Stack de Observabilidade - Grafana LGTM
 
-Este diretório contém a configuração completa da stack de observabilidade usando **Grafana, Loki, Tempo e Prometheus** (LGTM Stack).
+Este diretório contém a configuração completa da stack de observabilidade usando **Grafana, Loki, Tempo e Prometheus** (
+LGTM Stack).
 
 ---
 
 ## 🎯 **Componentes da Stack**
 
-| Componente | Função | Porta | URL |
-|------------|--------|-------|-----|
-| **Grafana** | Dashboard unificado | 3000 | http://localhost:3000 |
-| **Loki** | Agregação de logs | 3100 | http://localhost:3100 |
-| **Promtail** | Coleta de logs | 9080 | - |
-| **Tempo** | Distributed tracing | 3200 | http://localhost:3200 |
-| **Prometheus** | Métricas | 9090 | http://localhost:9090 |
-| **Node Exporter** | Métricas do sistema | 9100 | http://localhost:9100 |
+| Componente        | Função              | Porta | URL                   |
+|-------------------|---------------------|-------|-----------------------|
+| **Grafana**       | Dashboard unificado | 3000  | http://localhost:3000 |
+| **Loki**          | Agregação de logs   | 3100  | http://localhost:3100 |
+| **Promtail**      | Coleta de logs      | 9080  | -                     |
+| **Tempo**         | Distributed tracing | 3200  | http://localhost:3200 |
+| **Prometheus**    | Métricas            | 9090  | http://localhost:9090 |
+| **Node Exporter** | Métricas do sistema | 9100  | http://localhost:9100 |
 
 ---
 
@@ -42,6 +43,7 @@ docker-compose -f docker-compose.observability.yaml ps
 Abra: http://localhost:3000
 
 **Credenciais**:
+
 - **Usuário**: `admin`
 - **Senha**: `admin`
 
@@ -55,6 +57,7 @@ Após fazer login no Grafana:
 
 1. Vá em **Explore** → Selecione **Prometheus**
 2. Query de exemplo:
+
 ```promql
 # Taxa de requisições HTTP
 rate(http_server_requests_seconds_count[5m])
@@ -70,6 +73,7 @@ rate(http_server_requests_seconds_count{status=~"5.."}[5m])
 
 1. Vá em **Explore** → Selecione **Loki**
 2. Query de exemplo:
+
 ```logql
 # Todos os logs da aplicação
 {job="order-service"}
@@ -99,22 +103,22 @@ rate(http_server_requests_seconds_count{status=~"5.."}[5m])
     <artifactId>micrometer-registry-prometheus</artifactId>
 </dependency>
 
-<!-- Distributed Tracing com OpenTelemetry -->
+        <!-- Distributed Tracing com OpenTelemetry -->
 <dependency>
-    <groupId>io.micrometer</groupId>
-    <artifactId>micrometer-tracing-bridge-otel</artifactId>
+<groupId>io.micrometer</groupId>
+<artifactId>micrometer-tracing-bridge-otel</artifactId>
 </dependency>
 
 <dependency>
-    <groupId>io.opentelemetry</groupId>
-    <artifactId>opentelemetry-exporter-otlp</artifactId>
+<groupId>io.opentelemetry</groupId>
+<artifactId>opentelemetry-exporter-otlp</artifactId>
 </dependency>
 
-<!-- Logback para Loki (opcional - melhora integração) -->
+        <!-- Logback para Loki (opcional - melhora integração) -->
 <dependency>
-    <groupId>com.github.loki4j</groupId>
-    <artifactId>loki-logback-appender</artifactId>
-    <version>1.4.2</version>
+<groupId>com.github.loki4j</groupId>
+<artifactId>loki-logback-appender</artifactId>
+<version>1.5.1</version>
 </dependency>
 ```
 
@@ -124,15 +128,12 @@ rate(http_server_requests_seconds_count{status=~"5.."}[5m])
 # ============================================
 # OBSERVABILITY - Metrics, Logs, Traces
 # ============================================
-
 # Expor endpoint Prometheus
 management.endpoints.web.exposure.include=health,info,metrics,prometheus
 management.metrics.export.prometheus.enabled=true
-
 # Distributed Tracing com OpenTelemetry
 management.tracing.sampling.probability=1.0
 management.otlp.tracing.endpoint=http://localhost:4318/v1/traces
-
 # Logs estruturados (JSON) para melhor integração com Loki
 logging.pattern.console=%d{yyyy-MM-dd HH:mm:ss} - %msg%n
 logging.file.name=./logs/order-service.log
@@ -158,6 +159,7 @@ Importe dashboards prontos do Grafana:
 4. **RabbitMQ** - ID: `10991`
 
 **Como importar**:
+
 1. Grafana → Dashboards → Import
 2. Cole o ID do dashboard
 3. Selecione o datasource correto
@@ -218,6 +220,7 @@ sum by (level) (count_over_time({job="order-service"} [5m]))
 ### Problema: Grafana não encontra datasources
 
 **Solução**: Verifique se os serviços estão rodando:
+
 ```bash
 docker-compose -f docker-compose.observability.yaml ps
 ```
@@ -225,12 +228,15 @@ docker-compose -f docker-compose.observability.yaml ps
 ### Problema: Prometheus não coleta métricas da aplicação
 
 **Solução**:
+
 1. Verifique se `/actuator/prometheus` está acessível:
+
 ```bash
 curl http://localhost:8080/actuator/prometheus
 ```
 
 2. Verifique se a aplicação está acessível do container:
+
 ```bash
 curl http://host.docker.internal:8080/actuator/prometheus
 ```
@@ -238,9 +244,11 @@ curl http://host.docker.internal:8080/actuator/prometheus
 ### Problema: Loki não recebe logs
 
 **Solução**:
+
 1. Verifique se o diretório `./logs` existe
 2. Verifique se a aplicação está escrevendo logs em `./logs/order-service.log`
 3. Restart do Promtail:
+
 ```bash
 docker-compose -f docker-compose.observability.yaml restart promtail
 ```

@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -45,12 +44,6 @@ public class OrderApplicationService implements CreateOrderUseCase {
     public Optional<PolicyProposal> findPolicyRequestById(PolicyProposalId id) {
         log.debug("Buscando proposta de apólice por ID: {}", id.asString());
         return orderRepository.findById(id);
-    }
-
-    @Override
-    public Optional<PolicyProposal> findPolicyRequestByCustomerId(UUID customerId) {
-        log.debug("Buscando proposta de apólice por ID do cliente: {}", customerId);
-        return orderRepository.findByCustomerId(customerId);
     }
 
     @Override

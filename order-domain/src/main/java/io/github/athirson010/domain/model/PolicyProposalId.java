@@ -13,10 +13,6 @@ public record PolicyProposalId(UUID value) {
         return new PolicyProposalId(UUID.fromString(id));
     }
 
-    public static PolicyProposalId from(UUID id) {
-        return new PolicyProposalId(id);
-    }
-
     public String asString() {
         return value.toString();
     }

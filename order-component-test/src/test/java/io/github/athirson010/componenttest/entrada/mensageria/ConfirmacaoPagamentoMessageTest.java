@@ -186,7 +186,7 @@ class ConfirmacaoPagamentoMessageTest extends BaseComponentTest {
         // Then - Status deve mudar para REJECTED imediatamente
         verify(orderRepository, times(1)).findById(idSolicitacao);
         verify(orderRepository, times(1)).save(argThat(policy ->
-            policy.getStatus() == PolicyStatus.REJECTED
+                policy.getStatus() == PolicyStatus.REJECTED
         ));
     }
 }

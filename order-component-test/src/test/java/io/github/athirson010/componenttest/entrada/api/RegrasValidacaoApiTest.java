@@ -1,7 +1,6 @@
 package io.github.athirson010.componenttest.entrada.api;
 
 import io.github.athirson010.componenttest.BaseComponentTest;
-import io.github.athirson010.componenttest.config.FixtureLoader;
 import io.github.athirson010.core.port.in.CreateOrderUseCase;
 import io.github.athirson010.domain.enums.PolicyStatus;
 import io.github.athirson010.domain.model.PolicyProposal;

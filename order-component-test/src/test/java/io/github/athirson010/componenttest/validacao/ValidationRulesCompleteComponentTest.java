@@ -1,7 +1,6 @@
 package io.github.athirson010.componenttest.validacao;
 
 import io.github.athirson010.componenttest.BaseComponentTest;
-import io.github.athirson010.componenttest.templates.PolicyRequestTemplateBuilder;
 import io.github.athirson010.core.service.PolicyValidationService;
 import io.github.athirson010.domain.enums.Category;
 import io.github.athirson010.domain.enums.PaymentMethod;
@@ -29,12 +28,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Teste de componente que garante 100% de cobertura das regras de validação
  * definidas no validation-rules.json
- *
+ * <p>
  * Valida todas as 16 combinações:
  * - 4 Classificações de Risco (REGULAR, HIGH_RISK, PREFERENTIAL, NO_INFORMATION)
  * - 4 Categorias principais (AUTO, VIDA, RESIDENCIAL, EMPRESARIAL)
  * - 1 Categoria adicional (OUTROS)
- *
+ * <p>
  * Cada teste valida:
  * 1. Valor DENTRO do limite → deve APROVAR
  * 2. Valor NO limite → deve APROVAR

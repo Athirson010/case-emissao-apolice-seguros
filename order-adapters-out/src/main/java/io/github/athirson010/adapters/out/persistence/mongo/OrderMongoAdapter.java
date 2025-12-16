@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Component
@@ -38,31 +37,5 @@ public class OrderMongoAdapter implements OrderRepository {
 
         return mongoRepository.findById(id.asString())
                 .map(mapper::toDomain);
-    }
-
-    @Override
-    public Optional<PolicyProposal> findByCustomerId(UUID customerId) {
-        log.debug("Buscando proposta de apólice por ID do cliente: {}", customerId);
-
-        return mongoRepository.findByCustomerId(customerId.toString())
-                .stream()
-                .findFirst()
-                .map(mapper::toDomain);
-    }
-
-    @Override
-    public void deleteById(PolicyProposalId id) {
-        log.debug("Deletando proposta de apólice com ID: {}", id.asString());
-
-        mongoRepository.deleteById(id.asString());
-
-        log.info("Proposta de apólice deletada com sucesso com ID: {}", id.asString());
-    }
-
-    @Override
-    public boolean existsById(PolicyProposalId id) {
-        log.debug("Verificando se proposta de apólice existe com ID: {}", id.asString());
-
-        return mongoRepository.existsById(id.asString());
     }
 }

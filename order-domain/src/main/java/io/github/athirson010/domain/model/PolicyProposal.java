@@ -53,6 +53,22 @@ public class PolicyProposal {
     @Builder.Default
     private List<HistoryEntry> history = new ArrayList<>();
 
+    /**
+     * Factory method para criar uma nova proposta de apólice no estado inicial RECEIVED.
+     * Inicializa o histórico com a entrada RECEIVED.
+     *
+     * @param customerId                ID do cliente solicitante
+     * @param productId                 ID do produto de seguro
+     * @param category                  categoria do seguro (AUTO, VIDA, RESIDENCIAL, EMPRESARIAL, OUTROS)
+     * @param salesChannel              canal de vendas (MOBILE, WEB, WHATSAPP, OUTROS)
+     * @param paymentMethod             forma de pagamento (CREDIT_CARD, DEBIT, BOLETO, PIX)
+     * @param totalMonthlyPremiumAmount valor do prêmio mensal total
+     * @param insuredAmount             valor do capital segurado
+     * @param coverages                 coberturas da apólice (nome da cobertura e valor)
+     * @param assistances               assistências incluídas na apólice
+     * @param now                       timestamp de criação
+     * @return nova instância de PolicyProposal no estado RECEIVED
+     */
     public static PolicyProposal create(
             UUID customerId,
             String productId,
@@ -84,6 +100,14 @@ public class PolicyProposal {
         return policyProposal;
     }
 
+    /**
+     * Cancela a proposta de apólice.
+     * Regra de negócio: Cancelamento só é permitido antes de estados finais (APPROVED, REJECTED, CANCELED).
+     *
+     * @param reason motivo do cancelamento
+     * @param now    timestamp do cancelamento
+     * @throws InvalidTransitionException se a proposta já estiver em estado final
+     */
     public void cancel(String reason, Instant now) {
         if (this.status == PolicyStatus.CANCELED ||
                 this.status == PolicyStatus.REJECTED ||
@@ -98,12 +122,26 @@ public class PolicyProposal {
         addHistoryEntry(PolicyStatus.CANCELED, now, reason);
     }
 
+    /**
+     * Valida a proposta de apólice após análise de fraude.
+     * Transição válida: RECEIVED → VALIDATED
+     *
+     * @param now timestamp da validação
+     * @throws InvalidTransitionException se a transição não for válida
+     */
     public void validate(Instant now) {
         validateTransition(PolicyStatus.VALIDATED);
         this.status = PolicyStatus.VALIDATED;
         addHistoryEntry(PolicyStatus.VALIDATED, now, null);
     }
 
+    /**
+     * Marca a proposta como PENDING, aguardando confirmação de pagamento e subscrição.
+     * Transição válida: VALIDATED → PENDING
+     *
+     * @param now timestamp da mudança de status
+     * @throws InvalidTransitionException se a transição não for válida
+     */
     public void markAsPending(Instant now) {
         validateTransition(PolicyStatus.PENDING);
         this.status = PolicyStatus.PENDING;
@@ -117,9 +155,9 @@ public class PolicyProposal {
      * - Se APROVADO: só aprova se subscription também foi aprovada, senão aguarda
      * - Sempre registra no histórico, mesmo se já estiver REJECTED
      *
-     * @param approved indica se o pagamento foi aprovado
+     * @param approved        indica se o pagamento foi aprovado
      * @param rejectionReason motivo da rejeição (se houver)
-     * @param now timestamp da resposta
+     * @param now             timestamp da resposta
      */
     public void processPaymentResponse(boolean approved, String rejectionReason, Instant now) {
         // Se já está rejeitado, apenas adiciona histórico da resposta de pagamento
@@ -134,8 +172,8 @@ public class PolicyProposal {
 
             // Adiciona entrada no histórico informando o resultado do pagamento
             String historyMessage = approved
-                ? "Pagamento aprovado (após rejeição por subscrição)"
-                : "Pagamento rejeitado: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
+                    ? "Pagamento aprovado (após rejeição por subscrição)"
+                    : "Pagamento rejeitado: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
             addHistoryEntry(PolicyStatus.REJECTED, now, historyMessage);
             return;
         }
@@ -176,9 +214,9 @@ public class PolicyProposal {
      * - Se APROVADO: só aprova se payment também foi aprovado, senão aguarda
      * - Sempre registra no histórico, mesmo se já estiver REJECTED
      *
-     * @param approved indica se a subscrição foi aprovada
+     * @param approved        indica se a subscrição foi aprovada
      * @param rejectionReason motivo da rejeição (se houver)
-     * @param now timestamp da resposta
+     * @param now             timestamp da resposta
      */
     public void processSubscriptionResponse(boolean approved, String rejectionReason, Instant now) {
         // Se já está rejeitado, apenas adiciona histórico da resposta de subscrição
@@ -193,8 +231,8 @@ public class PolicyProposal {
 
             // Adiciona entrada no histórico informando o resultado da subscrição
             String historyMessage = approved
-                ? "Subscrição aprovada (após rejeição por pagamento)"
-                : "Subscrição rejeitada: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
+                    ? "Subscrição aprovada (após rejeição por pagamento)"
+                    : "Subscrição rejeitada: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
             addHistoryEntry(PolicyStatus.REJECTED, now, historyMessage);
             return;
         }
@@ -245,6 +283,14 @@ public class PolicyProposal {
         processSubscriptionResponse(true, null, now);
     }
 
+    /**
+     * Aprova a proposta de apólice.
+     * Regra de negócio: Só aprova quando AMBAS respostas (pagamento E subscrição) foram aprovadas.
+     * Transição válida: PENDING → APPROVED (estado final)
+     *
+     * @param now timestamp da aprovação
+     * @throws InvalidTransitionException se a transição não for válida
+     */
     public void approve(Instant now) {
         validateTransition(PolicyStatus.APPROVED);
         this.status = PolicyStatus.APPROVED;
@@ -252,6 +298,15 @@ public class PolicyProposal {
         addHistoryEntry(PolicyStatus.APPROVED, now, null);
     }
 
+    /**
+     * Rejeita a proposta de apólice.
+     * Regra de negócio: Rejeição IMEDIATA quando QUALQUER resposta (pagamento OU subscrição) for rejeitada.
+     * Transição válida: VALIDATED → REJECTED ou PENDING → REJECTED (estado final)
+     *
+     * @param reason motivo da rejeição
+     * @param now    timestamp da rejeição
+     * @throws InvalidTransitionException se a transição não for válida
+     */
     public void reject(String reason, Instant now) {
         validateTransition(PolicyStatus.REJECTED);
         this.status = PolicyStatus.REJECTED;
@@ -259,6 +314,17 @@ public class PolicyProposal {
         addHistoryEntry(PolicyStatus.REJECTED, now, reason);
     }
 
+    /**
+     * Valida se a transição de estado é permitida pela máquina de estados.
+     * Regras de transição:
+     * - RECEIVED → VALIDATED ou CANCELED
+     * - VALIDATED → PENDING ou REJECTED
+     * - PENDING → APPROVED ou REJECTED
+     * - Estados finais (APPROVED, REJECTED, CANCELED) são imutáveis
+     *
+     * @param targetStatus estado de destino da transição
+     * @throws InvalidTransitionException se a transição não for válida
+     */
     private void validateTransition(PolicyStatus targetStatus) {
         if (this.status.isFinalState()) {
             throw new InvalidTransitionException(this.status, targetStatus);
