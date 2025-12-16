@@ -948,6 +948,188 @@ jvm_memory_used_bytes{area="heap"}
 
 ---
 
+## 🔍 SonarQube - Análise de Qualidade de Código
+
+**Status**: ✅ **CONFIGURADO E PRONTO PARA USO**
+
+SonarQube é uma plataforma de análise estática de código que detecta bugs, vulnerabilidades de segurança, code smells e calcula cobertura de testes.
+
+### Infraestrutura
+
+**Docker Compose**: `docker-compose.sonarqube.yaml`
+- **SonarQube 10.3 Community Edition** (porta 9000)
+- **PostgreSQL 15** (banco de dados do SonarQube)
+
+### Como Usar
+
+#### 1. Iniciar SonarQube
+
+```bash
+docker-compose -f docker-compose.sonarqube.yaml up -d
+```
+
+Aguarde até o SonarQube estar pronto (pode levar 1-2 minutos):
+
+```bash
+# Verificar status
+docker-compose -f docker-compose.sonarqube.yaml ps
+
+# Acompanhar logs
+docker-compose -f docker-compose.sonarqube.yaml logs -f sonarqube
+```
+
+#### 2. Primeiro Acesso
+
+1. Acesse: http://localhost:9000
+2. Login padrão:
+   - **Usuário**: `admin`
+   - **Senha**: `admin`
+3. Será solicitado alterar a senha no primeiro login
+
+#### 3. Executar Análise
+
+```bash
+# Compilar, executar testes e gerar cobertura JaCoCo
+mvn clean verify
+
+# Enviar análise para SonarQube
+mvn sonar:sonar
+```
+
+**Comando único**:
+```bash
+mvn clean verify sonar:sonar
+```
+
+#### 4. Visualizar Resultados
+
+1. Acesse o dashboard do SonarQube: http://localhost:9000
+2. O projeto aparecerá como **"Sistema de Emissão de Apólices de Seguros"**
+3. Key do projeto: `emissao-apolice-seguros`
+
+### Métricas Analisadas
+
+**Qualidade de Código**:
+- 🐛 **Bugs**: Problemas que podem causar comportamento inesperado
+- 🔒 **Vulnerabilities**: Falhas de segurança (SQL Injection, XSS, etc.)
+- 💡 **Code Smells**: Má práticas e código que dificulta manutenção
+- 📊 **Coverage**: Cobertura de testes (via JaCoCo)
+- 🔄 **Duplications**: Código duplicado
+
+**Métricas de Manutenibilidade**:
+- **Complexity**: Complexidade ciclomática
+- **Cognitive Complexity**: Complexidade de entendimento
+- **Technical Debt**: Tempo estimado para corrigir problemas
+
+### Configuração Maven
+
+**Plugins configurados no `pom.xml`**:
+
+1. **JaCoCo Plugin** (Cobertura de Código):
+```xml
+<plugin>
+    <groupId>org.jacoco</groupId>
+    <artifactId>jacoco-maven-plugin</artifactId>
+    <version>0.8.11</version>
+    <executions>
+        <execution>
+            <id>prepare-agent</id>
+            <goals>
+                <goal>prepare-agent</goal>
+            </goals>
+        </execution>
+        <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+                <goal>report</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+2. **SonarQube Scanner Plugin**:
+```xml
+<plugin>
+    <groupId>org.sonarsource.scanner.maven</groupId>
+    <artifactId>sonar-maven-plugin</artifactId>
+    <version>3.10.0.2594</version>
+</plugin>
+```
+
+**Propriedades configuradas**:
+```properties
+sonar.host.url=http://localhost:9000
+sonar.projectKey=emissao-apolice-seguros
+sonar.projectName=Sistema de Emissão de Apólices de Seguros
+sonar.java.coveragePlugin=jacoco
+sonar.coverage.jacoco.xmlReportPaths=${project.basedir}/target/site/jacoco/jacoco.xml
+```
+
+### Quality Gates
+
+SonarQube utiliza **Quality Gates** para definir critérios mínimos de qualidade:
+
+**Critérios padrão do SonarQube**:
+- Coverage: > 80%
+- Duplications: < 3%
+- Maintainability Rating: A
+- Reliability Rating: A
+- Security Rating: A
+
+**Customização** (opcional):
+1. No SonarQube, vá em **Quality Gates**
+2. Crie um novo gate ou edite o existente
+3. Defina seus próprios critérios
+
+### Boas Práticas
+
+✅ **Execute análise regularmente**: Antes de commits importantes ou PRs
+✅ **Monitore tendências**: Observe se métricas estão melhorando ou piorando
+✅ **Corrija bugs primeiro**: Priorize bugs sobre code smells
+✅ **Atente a vulnerabilidades**: Falhas de segurança devem ser corrigidas imediatamente
+✅ **Mantenha cobertura alta**: Alvo mínimo de 80% de cobertura de testes
+
+### Parar SonarQube
+
+```bash
+docker-compose -f docker-compose.sonarqube.yaml down
+```
+
+**Manter dados** (volumes persistem):
+```bash
+docker-compose -f docker-compose.sonarqube.yaml down
+```
+
+**Remover tudo** (incluindo banco de dados):
+```bash
+docker-compose -f docker-compose.sonarqube.yaml down -v
+```
+
+### Integração com CI/CD
+
+**Exemplo para GitHub Actions**:
+```yaml
+- name: Análise SonarQube
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  run: mvn clean verify sonar:sonar -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+```
+
+**Exemplo para GitLab CI**:
+```yaml
+sonarqube-check:
+  stage: test
+  script:
+    - mvn clean verify sonar:sonar
+  only:
+    - merge_requests
+    - main
+```
+
+---
+
 ## 📊 Estrutura de Módulos Maven
 
 ```
@@ -1043,6 +1225,10 @@ Este projeto atende aos seguintes requisitos do desafio técnico:
 - [x] Traces enviados para Tempo via OpenTelemetry OTLP
 - [x] Logs estruturados em JSON enviados para Loki com Trace ID
 - [x] Grafana configurado com datasources automáticos (Prometheus, Loki, Tempo)
+- [x] **SonarQube Configurado**: Análise de qualidade de código e cobertura
+- [x] JaCoCo plugin configurado para cobertura de testes
+- [x] SonarQube Maven plugin integrado
+- [x] Docker Compose para SonarQube local pronto para uso
 
 ---
 

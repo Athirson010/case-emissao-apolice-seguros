@@ -2,7 +2,7 @@ package io.github.athirson010.componenttest.ciclovida;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.athirson010.adapters.in.messaging.rabbitmq.PaymentConfirmationConsumer;
-import io.github.athirson010.adapters.in.messaging.rabbitmq.SubscriptionConfirmationConsumer;
+import io.github.athirson010.adapters.in.messaging.rabbitmq.InsuranceSubscriptionConfirmationConsumer;
 import io.github.athirson010.componenttest.BaseComponentTest;
 import io.github.athirson010.componenttest.templates.*;
 import io.github.athirson010.core.port.out.OrderRepository;
@@ -47,7 +47,7 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
     private PaymentConfirmationConsumer paymentConsumer;
 
     @Autowired
-    private SubscriptionConfirmationConsumer subscriptionConsumer;
+    private InsuranceSubscriptionConfirmationConsumer subscriptionConsumer;
 
     @Test
     @DisplayName("Deve completar fluxo de sucesso: RECEIVED → VALIDATED → PENDING → APPROVED")
@@ -89,7 +89,7 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
 
         // When: Receber confirmação de subscrição
         String subscriptionEvent = SubscriptionConfirmationEventBuilder.approved(policyId).buildAsJson();
-        subscriptionConsumer.consumeSubscriptionConfirmation(subscriptionEvent);
+        subscriptionConsumer.consumeInsuranceSubscriptionConfirmation(subscriptionEvent);
 
         // Then: Policy deve estar APPROVED
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
@@ -107,8 +107,8 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
     }
 
     @Test
-    @DisplayName("Deve rejeitar apólice quando pagamento é negado")
-    void deveRejeitarApoliceQuandoPagamentoNegado() throws Exception {
+    @DisplayName("Deve rejeitar apólice IMEDIATAMENTE quando pagamento é negado")
+    void deveRejeitarApoliceImediatamenteQuandoPagamentoNegado() throws Exception {
         // Given: Criar uma solicitação de apólice
         String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
 
@@ -121,6 +121,11 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
 
         String responseBody = createResult.getResponse().getContentAsString();
         String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
+
+        // Verificar que foi salva no banco
+        PolicyProposal savedPolicy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(savedPolicy).isNotNull();
+        assertThat(savedPolicy.getStatus()).isEqualTo(PolicyStatus.RECEIVED);
 
         // When: Validar e marcar como PENDING
         PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
@@ -128,25 +133,41 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         policy.markAsPending(java.time.Instant.now());
         orderRepository.save(policy);
 
-        // When: Receber rejeição de pagamento
+        // When: Receber rejeição de pagamento (REJEIÇÃO IMEDIATA)
         String paymentEvent = PaymentConfirmationEventBuilder
                 .rejectedInsufficientFunds(policyId)
                 .buildAsJson();
         paymentConsumer.consumePaymentConfirmation(paymentEvent);
 
-        // Then: Policy deve estar REJECTED
+        // Then: Policy deve estar REJECTED imediatamente (não aguarda subscrição)
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.REJECTED);
         assertThat(policy.getFinishedAt()).isNotNull();
+        assertThat(policy.isPaymentResponseReceived()).isTrue();
+        assertThat(policy.isSubscriptionResponseReceived()).isFalse();
 
         // Then: Histórico deve conter o motivo da rejeição
         assertThat(policy.getHistory().get(policy.getHistory().size() - 1).reason())
                 .contains("Pagamento rejeitado");
+
+        // When: Agora subscrição chega (após já estar REJECTED)
+        String subscriptionEvent = SubscriptionConfirmationEventBuilder.approved(policyId).buildAsJson();
+        subscriptionConsumer.consumeInsuranceSubscriptionConfirmation(subscriptionEvent);
+
+        // Then: Deve permanecer REJECTED e adicionar entrada no histórico
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.REJECTED);
+        assertThat(policy.isSubscriptionResponseReceived()).isTrue();
+
+        // Verificar que histórico tem ambas as respostas
+        assertThat(policy.getHistory()).hasSizeGreaterThanOrEqualTo(5);
+        assertThat(policy.getHistory().get(policy.getHistory().size() - 1).reason())
+                .contains("Subscrição aprovada (após rejeição por pagamento)");
     }
 
     @Test
-    @DisplayName("Deve rejeitar apólice quando subscrição é negada")
-    void deveRejeitarApoliceQuandoSubscricaoNegada() throws Exception {
+    @DisplayName("Deve rejeitar apólice IMEDIATAMENTE quando subscrição é negada")
+    void deveRejeitarApoliceImediatamenteQuandoSubscricaoNegada() throws Exception {
         // Given: Criar uma solicitação de apólice
         String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
 
@@ -159,6 +180,10 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
 
         String responseBody = createResult.getResponse().getContentAsString();
         String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
+
+        // Verificar que foi salva no banco
+        PolicyProposal savedPolicy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(savedPolicy).isNotNull();
 
         // When: Validar e marcar como PENDING
         PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
@@ -170,16 +195,22 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         String paymentEvent = PaymentConfirmationEventBuilder.approved(policyId).buildAsJson();
         paymentConsumer.consumePaymentConfirmation(paymentEvent);
 
-        // When: Receber rejeição de subscrição
+        // Then: Ainda PENDING (aguardando subscrição)
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.PENDING);
+
+        // When: Receber rejeição de subscrição (REJEIÇÃO IMEDIATA)
         String subscriptionEvent = SubscriptionConfirmationEventBuilder
                 .rejectedHighRisk(policyId)
                 .buildAsJson();
-        subscriptionConsumer.consumeSubscriptionConfirmation(subscriptionEvent);
+        subscriptionConsumer.consumeInsuranceSubscriptionConfirmation(subscriptionEvent);
 
-        // Then: Policy deve estar REJECTED
+        // Then: Policy deve estar REJECTED imediatamente
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.REJECTED);
         assertThat(policy.getFinishedAt()).isNotNull();
+        assertThat(policy.isPaymentResponseReceived()).isTrue();
+        assertThat(policy.isSubscriptionResponseReceived()).isTrue();
 
         // Then: Histórico deve conter o motivo da rejeição
         assertThat(policy.getHistory().get(policy.getHistory().size() - 1).reason())
@@ -239,7 +270,7 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         paymentConsumer.consumePaymentConfirmation(paymentEvent);
 
         String subscriptionEvent = SubscriptionConfirmationEventBuilder.approved(policyId).buildAsJson();
-        subscriptionConsumer.consumeSubscriptionConfirmation(subscriptionEvent);
+        subscriptionConsumer.consumeInsuranceSubscriptionConfirmation(subscriptionEvent);
 
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.APPROVED);
@@ -278,7 +309,7 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         paymentConsumer.consumePaymentConfirmation(paymentEvent);
 
         String subscriptionEvent = SubscriptionConfirmationEventBuilder.approved(policyId).buildAsJson();
-        subscriptionConsumer.consumeSubscriptionConfirmation(subscriptionEvent);
+        subscriptionConsumer.consumeInsuranceSubscriptionConfirmation(subscriptionEvent);
 
         // Then: Verificar histórico completo
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
@@ -299,8 +330,8 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
     }
 
     @Test
-    @DisplayName("Deve manter aprovação pendente até receber AMBAS confirmações")
-    void deveManterAprovacaoPendenteAteReceberAmbasConfirmacoes() throws Exception {
+    @DisplayName("Deve aprovar apenas quando AMBAS respostas forem positivas")
+    void deveAprovarApenasQuandoAmbasRespostasForemPositivas() throws Exception {
         // Given: Criar uma apólice
         String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
 
@@ -321,7 +352,7 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
 
         // When: Receber apenas confirmação de subscrição (sem pagamento)
         String subscriptionEvent = SubscriptionConfirmationEventBuilder.approved(policyId).buildAsJson();
-        subscriptionConsumer.consumeSubscriptionConfirmation(subscriptionEvent);
+        subscriptionConsumer.consumeInsuranceSubscriptionConfirmation(subscriptionEvent);
 
         // Then: Deve permanecer PENDING
         policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
@@ -338,5 +369,68 @@ public class PolicyLifecycleComponentTest extends BaseComponentTest {
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.APPROVED);
         assertThat(policy.isPaymentConfirmed()).isTrue();
         assertThat(policy.isSubscriptionConfirmed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Deve registrar histórico completo quando AMBAS respostas forem rejeitadas")
+    void deveRegistrarHistoricoCompletoQuandoAmbasRejeitadas() throws Exception {
+        // Given: Criar uma apólice
+        String policyJson = PolicyRequestTemplateBuilder.autoRegular().buildAsJson();
+
+        MvcResult createResult = mockMvc.perform(post("/policies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(policyJson))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String responseBody = createResult.getResponse().getContentAsString();
+        String policyId = objectMapper.readTree(responseBody).get("policy_request_id").asText();
+
+        // Verificar persistência no banco
+        PolicyProposal savedPolicy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(savedPolicy).isNotNull();
+        assertThat(savedPolicy.getStatus()).isEqualTo(PolicyStatus.RECEIVED);
+
+        // When: Validar e marcar como PENDING
+        PolicyProposal policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        policy.validate(java.time.Instant.now());
+        policy.markAsPending(java.time.Instant.now());
+        orderRepository.save(policy);
+
+        // When: Pagamento rejeitado primeiro (REJEIÇÃO IMEDIATA)
+        String paymentEvent = PaymentConfirmationEventBuilder
+                .rejectedInsufficientFunds(policyId)
+                .buildAsJson();
+        paymentConsumer.consumePaymentConfirmation(paymentEvent);
+
+        // Then: Deve estar REJECTED
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.REJECTED);
+
+        // When: Subscrição também rejeitada (adiciona ao histórico)
+        String subscriptionEvent = SubscriptionConfirmationEventBuilder
+                .rejectedHighRisk(policyId)
+                .buildAsJson();
+        subscriptionConsumer.consumeInsuranceSubscriptionConfirmation(subscriptionEvent);
+
+        // Then: Deve permanecer REJECTED
+        policy = orderRepository.findById(PolicyProposalId.from(policyId)).orElseThrow();
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.REJECTED);
+        assertThat(policy.isPaymentResponseReceived()).isTrue();
+        assertThat(policy.isSubscriptionResponseReceived()).isTrue();
+
+        // Then: Histórico deve ter AMBAS as rejeições
+        // RECEIVED, VALIDATED, PENDING, REJECTED (payment), REJECTED (subscription)
+        assertThat(policy.getHistory()).hasSizeGreaterThanOrEqualTo(5);
+
+        // Verificar que tem o motivo do pagamento
+        boolean hasPaymentRejection = policy.getHistory().stream()
+                .anyMatch(entry -> entry.reason() != null && entry.reason().contains("Pagamento rejeitado"));
+        assertThat(hasPaymentRejection).isTrue();
+
+        // Verificar que tem o motivo da subscrição
+        boolean hasSubscriptionRejection = policy.getHistory().stream()
+                .anyMatch(entry -> entry.reason() != null && entry.reason().contains("Subscrição rejeitada"));
+        assertThat(hasSubscriptionRejection).isTrue();
     }
 }
