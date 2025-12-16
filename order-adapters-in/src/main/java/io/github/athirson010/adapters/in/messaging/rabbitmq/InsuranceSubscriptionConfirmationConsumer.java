@@ -16,34 +16,34 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 
 @Slf4j
-@Profile("order-consumer")
+@Profile("order-response-insurance-consumer")
 @Component
 @RequiredArgsConstructor
-public class SubscriptionConfirmationConsumer {
+public class InsuranceSubscriptionConfirmationConsumer {
 
     private final ObjectMapper objectMapper;
     private final OrderRepository orderRepository;
 
     @RabbitListener(queues = "${rabbitmq.queues.subscription-confirmation}")
-    public void consumeSubscriptionConfirmation(String messageBody) {
+    public void consumeInsuranceSubscriptionConfirmation(String messageBody) {
         try {
-            log.info("Mensagem de confirmação de subscrição recebida");
+            log.info("Mensagem de confirmação de subscrição de seguro recebida");
 
             SubscriptionConfirmationEvent event = deserializeMessage(messageBody);
 
-            log.info("Evento de subscrição desserializado. PolicyId={}, Status={}",
+            log.info("Evento de subscrição de seguro desserializado. PolicyId={}, Status={}",
                     event.getPolicyRequestId(),
                     event.getSubscriptionStatus());
 
-            processSubscriptionConfirmation(event);
+            processInsuranceSubscriptionConfirmation(event);
 
         } catch (Exception e) {
-            log.error("Erro ao processar mensagem de confirmação de subscrição", e);
-            throw new RuntimeException("Falha ao processar mensagem de confirmação de subscrição", e);
+            log.error("Erro ao processar mensagem de confirmação de subscrição de seguro", e);
+            throw new RuntimeException("Falha ao processar mensagem de confirmação de subscrição de seguro", e);
         }
     }
 
-    private void processSubscriptionConfirmation(SubscriptionConfirmationEvent event) {
+    private void processInsuranceSubscriptionConfirmation(SubscriptionConfirmationEvent event) {
         PolicyProposalId policyId = PolicyProposalId.from(event.getPolicyRequestId());
 
         PolicyProposal policyProposal = orderRepository.findById(policyId)
@@ -63,11 +63,11 @@ public class SubscriptionConfirmationConsumer {
 
         Instant now = Instant.now();
 
-        // Processa a resposta da subscrição (aprovada ou rejeitada)
+        // Processa a resposta da subscrição de seguro (aprovada ou rejeitada)
         boolean approved = event.isApproved();
         String rejectionReason = event.getRejectionReason();
 
-        log.info("Processando resposta de SUBSCRIÇÃO. PolicyId={}, Status={}, SubscriptionId={}",
+        log.info("Processando resposta de SUBSCRIÇÃO DE SEGURO. PolicyId={}, Status={}, SubscriptionId={}",
                 policyId.asString(),
                 approved ? "APPROVED" : "REJECTED",
                 event.getSubscriptionId());
@@ -77,7 +77,7 @@ public class SubscriptionConfirmationConsumer {
 
         orderRepository.save(policyProposal);
 
-        log.info("Resposta de subscrição processada. PolicyId={}, Status final={}",
+        log.info("Resposta de subscrição de seguro processada. PolicyId={}, Status final={}",
                 policyId.asString(),
                 policyProposal.getStatus());
     }

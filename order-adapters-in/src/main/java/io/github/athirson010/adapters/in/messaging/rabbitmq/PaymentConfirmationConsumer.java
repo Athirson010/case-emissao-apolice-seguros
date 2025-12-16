@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 
 @Slf4j
-@Profile("order-consumer")
+@Profile("order-response-payment-consumer")
 @Component
 @RequiredArgsConstructor
 public class PaymentConfirmationConsumer {

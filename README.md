@@ -1,3 +1,5 @@
+<div align="center">
+
 # Sistema de Emissão de Apólices de Seguros
 
 ![Itaú App](docs/itau-app.jpeg)
@@ -7,6 +9,8 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green.svg)](https://www.mongodb.com/)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-orange.svg)](https://www.rabbitmq.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+</div>
 
 ## 📋 Sobre o Projeto
 
@@ -103,35 +107,56 @@ CANCELED    REJECTED   REJECTED
 | **REJECTED** | - | Estado final (imutável) |
 | **CANCELED** | - | Estado final (imutável) |
 
-### Regras de Aprovação/Rejeição (Dual Confirmation)
+### Regras de Aprovação/Rejeição (Rejeição Imediata com Histórico Completo)
 
-A apólice utiliza o conceito de **Dual Confirmation**: aguarda resposta de **AMBOS** microserviços (pagamento E subscrição) antes de decidir se aprova ou rejeita.
+A apólice utiliza o conceito de **Rejeição Imediata com Histórico Completo**: se **QUALQUER** resposta (pagamento OU subscrição) for rejeitada, o status muda para **REJECTED imediatamente**. Mesmo após rejeitado, quando a segunda resposta chegar, ela é **registrada no histórico**.
 
 #### Comportamento por Cenário:
 
-| Resposta Pagamento | Resposta Subscrição | Status Final | Explicação |
-|-------------------|---------------------|--------------|------------|
-| ✅ APPROVED | ⏳ *aguardando* | **PENDING** | Permanece aguardando subscrição |
-| ❌ REJECTED | ⏳ *aguardando* | **PENDING** | Permanece aguardando subscrição |
-| ⏳ *aguardando* | ✅ APPROVED | **PENDING** | Permanece aguardando pagamento |
-| ⏳ *aguardando* | ❌ REJECTED | **PENDING** | Permanece aguardando pagamento |
-| ✅ APPROVED | ✅ APPROVED | **APPROVED** ✓ | Ambas aprovadas → Aprova |
-| ✅ APPROVED | ❌ REJECTED | **REJECTED** ✗ | Pelo menos uma rejeitada → Rejeita |
-| ❌ REJECTED | ✅ APPROVED | **REJECTED** ✗ | Pelo menos uma rejeitada → Rejeita |
-| ❌ REJECTED | ❌ REJECTED | **REJECTED** ✗ | Ambas rejeitadas → Rejeita |
+| Evento 1 | Evento 2 | Status após E1 | Status após E2 | Histórico |
+|----------|----------|----------------|----------------|-----------|
+| ✅ Pagamento APPROVED | ✅ Subscrição APPROVED | **PENDING** | **APPROVED** ✓ | Ambas aprovadas |
+| ✅ Pagamento APPROVED | ❌ Subscrição REJECTED | **PENDING** | **REJECTED** ✗ | Subscrição rejeitou |
+| ❌ Pagamento REJECTED | ✅ Subscrição APPROVED | **REJECTED** ✗ | **REJECTED** | Pagamento rejeitou + Subscrição aprovada (após rejeição) |
+| ❌ Pagamento REJECTED | ❌ Subscrição REJECTED | **REJECTED** ✗ | **REJECTED** | Ambas rejeitadas - 2 entradas no histórico |
+| ✅ Subscrição APPROVED | ✅ Pagamento APPROVED | **PENDING** | **APPROVED** ✓ | Ambas aprovadas |
+| ✅ Subscrição APPROVED | ❌ Pagamento REJECTED | **PENDING** | **REJECTED** ✗ | Pagamento rejeitou |
+| ❌ Subscrição REJECTED | ✅ Pagamento APPROVED | **REJECTED** ✗ | **REJECTED** | Subscrição rejeitou + Pagamento aprovado (após rejeição) |
+| ❌ Subscrição REJECTED | ❌ Pagamento REJECTED | **REJECTED** ✗ | **REJECTED** | Ambas rejeitadas - 2 entradas no histórico |
 
 #### Regras:
 
-✅ **APPROVED**: Somente quando recebeu **AMBAS** respostas E **AMBAS** são positivas
-❌ **REJECTED**: Quando recebeu **AMBAS** respostas E **PELO MENOS UMA** é negativa
-⏳ **PENDING**: Enquanto tiver recebido apenas **UMA** das duas respostas
+✅ **APPROVED**: Somente quando **AMBAS** respostas forem **APPROVED**
+❌ **REJECTED (Imediato)**: Quando **QUALQUER** resposta for **REJECTED** (não aguarda a segunda)
+📋 **Histórico Completo**: **SEMPRE** registra resultado de AMBAS respostas, mesmo após rejeição
 
-#### Motivo de Rejeição:
+#### Exemplos de Histórico:
 
-Quando rejeitada, o motivo combinará as razões de ambos microserviços:
-- Se apenas pagamento rejeitado: `"Pagamento rejeitado: <motivo>"`
-- Se apenas subscrição rejeitada: `"Subscrição rejeitada: <motivo>"`
-- Se ambos rejeitados: `"Pagamento rejeitado: <motivo>; Subscrição rejeitada: <motivo>"`
+**Cenário 1: Pagamento rejeitado, depois subscrição aprovada**
+```
+1. RECEIVED
+2. VALIDATED
+3. PENDING
+4. REJECTED - "Pagamento rejeitado: Fundos insuficientes"
+5. REJECTED - "Subscrição aprovada (após rejeição por pagamento)"
+```
+
+**Cenário 2: Ambas rejeitadas**
+```
+1. RECEIVED
+2. VALIDATED
+3. PENDING
+4. REJECTED - "Pagamento rejeitado: Cartão inválido"
+5. REJECTED - "Subscrição rejeitada: Alto risco"
+```
+
+**Cenário 3: Ambas aprovadas**
+```
+1. RECEIVED
+2. VALIDATED
+3. PENDING
+4. APPROVED
+```
 
 Qualquer tentativa de transição inválida resulta em `InvalidTransitionException`.
 
@@ -226,7 +251,23 @@ O sistema implementa **16 regras de validação** (4 classificações × 4 categ
 
 ### Consumers Implementados
 
+O sistema utiliza **profiles do Spring** para permitir escalabilidade independente de cada consumer:
+
+| Profile | Consumer | Fila | Responsabilidade |
+|---------|----------|------|------------------|
+| `order-consumer` | OrderConsumer | `order-service-consumer` | Processa criação de apólices |
+| `order-response-payment-consumer` | PaymentConfirmationConsumer | `order.payment.confirmation.queue` | Processa respostas de pagamento |
+| `order-response-insurance-consumer` | InsuranceSubscriptionConfirmationConsumer | `order.subscription.confirmation.queue` | Processa respostas de subscrição |
+
+**Benefícios desta arquitetura**:
+- ✅ **Escalabilidade Independente**: Cada consumer pode escalar horizontalmente conforme demanda
+- ✅ **Isolamento de Falhas**: Problema em um consumer não afeta os outros
+- ✅ **Deploy Independente**: Cada profile pode ser atualizado sem afetar os demais
+- ✅ **Otimização de Recursos**: Dimensionar recursos específicos para cada carga de trabalho
+
 #### 1. PaymentConfirmationConsumer
+
+**Profile**: `order-response-payment-consumer`
 
 **Função**: Processa eventos de confirmação/rejeição de pagamento
 
@@ -245,15 +286,18 @@ O sistema implementa **16 regras de validação** (4 classificações × 4 categ
 }
 ```
 
-**Comportamento**:
-- `APPROVED`: Marca `paymentConfirmed = true`, aprova se subscription também confirmada
-- `REJECTED`: Rejeita a apólice imediatamente
+**Comportamento (Rejeição Imediata)**:
+- `APPROVED`: Marca `paymentConfirmed = true`, mantém PENDING até subscription chegar (ou APROVA se subscription já veio aprovada)
+- `REJECTED`: Muda status para REJECTED **imediatamente** (não aguarda subscription)
+- **Histórico**: Se já estiver REJECTED (por subscription), adiciona entrada no histórico registrando resultado do pagamento
 
 **Implementação**: `order-adapters-in/src/main/java/io/github/athirson010/adapters/in/messaging/rabbitmq/PaymentConfirmationConsumer.java`
 
-#### 2. SubscriptionConfirmationConsumer
+#### 2. InsuranceSubscriptionConfirmationConsumer
 
-**Função**: Processa eventos de confirmação/rejeição de subscrição
+**Profile**: `order-response-insurance-consumer`
+
+**Função**: Processa eventos de confirmação/rejeição de subscrição de seguro
 
 **Queue**: `order.subscription.confirmation.queue`
 
@@ -268,11 +312,12 @@ O sistema implementa **16 regras de validação** (4 classificações × 4 categ
 }
 ```
 
-**Comportamento**:
-- `APPROVED`: Marca `subscriptionConfirmed = true`, aprova se payment também confirmado
-- `REJECTED`: Rejeita a apólice imediatamente
+**Comportamento (Rejeição Imediata)**:
+- `APPROVED`: Marca `subscriptionConfirmed = true`, mantém PENDING até payment chegar (ou APROVA se payment já veio aprovado)
+- `REJECTED`: Muda status para REJECTED **imediatamente** (não aguarda payment)
+- **Histórico**: Se já estiver REJECTED (por payment), adiciona entrada no histórico registrando resultado da subscrição
 
-**Implementação**: `order-adapters-in/src/main/java/io/github/athirson010/adapters/in/messaging/rabbitmq/SubscriptionConfirmationConsumer.java`
+**Implementação**: `order-adapters-in/src/main/java/io/github/athirson010/adapters/in/messaging/rabbitmq/InsuranceSubscriptionConfirmationConsumer.java`
 
 ### Exemplos de Uso
 
@@ -540,19 +585,65 @@ mvn clean install
 
 ### 3. Executar a Aplicação
 
-#### Profile: order-consumer
+O sistema possui **3 profiles** que permitem executar cada consumer de forma independente para **escalabilidade horizontal**:
+
+#### Opção A: Executar todos os consumers juntos (Desenvolvimento)
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=order-consumer
+mvn spring-boot:run -Dspring-boot.run.profiles=order-consumer,order-response-payment-consumer,order-response-insurance-consumer
 ```
 
 ou
 
 ```bash
-java -jar order-application/target/order-application-*.jar --spring.profiles.active=order-consumer
+java -jar order-application/target/order-application-*.jar \
+  --spring.profiles.active=order-consumer,order-response-payment-consumer,order-response-insurance-consumer
 ```
 
 **Porta**: 8080
+
+#### Opção B: Executar consumers separadamente (Produção - Escalabilidade)
+
+Esta é a **arquitetura recomendada para produção**, permitindo escalar cada consumer independentemente:
+
+**Terminal 1 - Consumer Principal de Orders**:
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=order-consumer
+# Porta: 8080
+```
+
+**Terminal 2 - Consumer de Respostas de Pagamento**:
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=order-response-payment-consumer
+# Porta: 8081 (ou configure outra)
+```
+
+**Terminal 3 - Consumer de Respostas de Subscrição de Seguro**:
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=order-response-insurance-consumer
+# Porta: 8082 (ou configure outra)
+```
+
+**Benefícios da separação**:
+- **Escalabilidade**: Se respostas de pagamento aumentarem, escale apenas `order-response-payment-consumer`
+- **Resiliência**: Falha em um consumer não derruba os outros
+- **Deploy Independente**: Atualizar lógica de payment sem afetar insurance
+- **Métricas Isoladas**: Monitorar performance de cada consumer separadamente
+
+**Exemplo de escalabilidade horizontal**:
+```bash
+# 1 instância do consumer principal
+java -jar order-application.jar --spring.profiles.active=order-consumer --server.port=8080
+
+# 3 instâncias do consumer de pagamento (alto volume)
+java -jar order-application.jar --spring.profiles.active=order-response-payment-consumer --server.port=8081
+java -jar order-application.jar --spring.profiles.active=order-response-payment-consumer --server.port=8082
+java -jar order-application.jar --spring.profiles.active=order-response-payment-consumer --server.port=8083
+
+# 2 instâncias do consumer de subscrição
+java -jar order-application.jar --spring.profiles.active=order-response-insurance-consumer --server.port=8084
+java -jar order-application.jar --spring.profiles.active=order-response-insurance-consumer --server.port=8085
+```
 
 ### 4. Executar Testes
 
@@ -662,21 +753,28 @@ Cancela uma apólice (somente antes de estados finais).
 
 ### Premissas de Negócio
 
-1. **Dual Confirmation**:
-   - Policy permanece **PENDING** até receber resposta de **AMBOS** microserviços
-   - Só aprova se **AMBAS** respostas forem positivas
-   - Só rejeita após receber **AMBAS** respostas (com pelo menos uma negativa)
+1. **Rejeição Imediata com Histórico Completo**:
+   - Policy muda para **REJECTED imediatamente** se **QUALQUER** resposta (pagamento OU subscrição) for rejeitada
+   - Só aprova se **AMBAS** respostas forem **APPROVED**
+   - **Histórico completo**: Mesmo após rejeitado, a segunda resposta é registrada no histórico
 
-2. **Eventos fora de ordem**:
+2. **Garantia de Histórico**:
+   - O histórico **SEMPRE** contém o resultado de **AMBAS** as respostas (pagamento E subscrição)
+   - Se primeira resposta rejeitar, status muda para REJECTED
+   - Se segunda resposta chegar após rejeição, adiciona entrada no histórico com resultado (aprovado ou rejeitado)
+
+3. **Eventos fora de ordem**:
    - Se uma confirmação chega antes da policy estar PENDING, ela é ignorada
    - Não é permitido processar a mesma resposta (pagamento ou subscrição) duas vezes
 
-3. **Estados finais**: APPROVED, REJECTED e CANCELED são imutáveis
+4. **Estados finais**: APPROVED, REJECTED e CANCELED são imutáveis
 
-4. **Cancelamento**: Permitido apenas antes de estados finais
+5. **Cancelamento**: Permitido apenas antes de estados finais
 
-5. **Motivo de rejeição combinado**:
-   - Quando rejeitada, o histórico registra o motivo de **TODAS** as rejeições recebidas
+6. **Exemplo de histórico com rejeição**:
+   - Pagamento rejeitado → entrada no histórico: "Pagamento rejeitado: <motivo>"
+   - Subscrição aprovada depois → nova entrada: "Subscrição aprovada (após rejeição por pagamento)"
+   - Status final: **REJECTED**
 
 ### Decisões Técnicas
 
@@ -701,6 +799,39 @@ Cancela uma apólice (somente antes de estados finais).
 2. **Setup local**: Mais simples que Kafka (sem Zookeeper, Schema Registry, etc.)
 3. **Adequação ao problema**: Volumes não justificam complexidade do Kafka
 4. **Familiaridade**: RabbitMQ é amplamente conhecido e bem documentado
+
+#### Profiles Separados para Escalabilidade
+
+**Decisão**: Separar consumers em profiles Spring independentes.
+
+**Profiles criados**:
+1. `order-consumer`: Consumer principal de processamento de pedidos
+2. `order-response-payment-consumer`: Consumer dedicado para respostas de pagamento
+3. `order-response-insurance-consumer`: Consumer dedicado para respostas de subscrição de seguro
+
+**Motivos**:
+1. **Escalabilidade Horizontal**: Cada consumer pode ter N instâncias independentes
+2. **Isolamento de Falhas**: Problema em payment não afeta insurance e vice-versa
+3. **Otimização de Recursos**: Escalar apenas o consumer com maior carga
+4. **Deploy Independente**: Atualizar lógica de payment sem restart de insurance
+5. **Métricas Granulares**: Monitorar performance de cada consumer separadamente
+
+**Exemplo de produção**:
+```bash
+# Baixa carga de orders: 1 instância
+1x order-consumer (porta 8080)
+
+# Alta carga de pagamentos: 5 instâncias
+5x order-response-payment-consumer (portas 8081-8085)
+
+# Média carga de subscrições: 2 instâncias
+2x order-response-insurance-consumer (portas 8086-8087)
+```
+
+**Implementação**:
+- `PaymentConfirmationConsumer.java`: `@Profile("order-response-payment-consumer")`
+- `InsuranceSubscriptionConfirmationConsumer.java`: `@Profile("order-response-insurance-consumer")`
+- `application.properties`: Documentação de todos os profiles disponíveis
 
 #### Docker Compose
 
@@ -792,22 +923,26 @@ Este projeto atende aos seguintes requisitos do desafio técnico:
 
 - [x] Todas as transições de estado respeitam validation-rules.json
 - [x] Estados finais são imutáveis
-- [x] **Dual Confirmation**: Policy só decide status final após receber AMBAS respostas
+- [x] **Rejeição Imediata**: Policy muda para REJECTED imediatamente se QUALQUER resposta for rejeitada
 - [x] Policy só é APPROVED quando AMBAS respostas (pagamento E subscrição) são positivas
-- [x] Policy é REJECTED quando AMBAS respostas chegam e PELO MENOS UMA é negativa
-- [x] Policy permanece PENDING enquanto aguarda qualquer uma das respostas
+- [x] **Histórico Completo**: SEMPRE registra resultado de AMBAS respostas, mesmo após rejeição
+- [x] Segunda resposta (após rejeição) é registrada no histórico mantendo status REJECTED
 - [x] Transições inválidas são rejeitadas com InvalidTransitionException
 - [x] Não permite processar a mesma resposta (pagamento/subscrição) duas vezes
 - [x] Templates substituem completamente TestDataFixtures
 - [x] README reflete fielmente o código e arquitetura
 - [x] 16 regras de validação implementadas e testadas (100% cobertura)
 - [x] Consumers de pagamento e seguro funcionais com nova lógica
+- [x] **Profiles separados**: 3 profiles para escalabilidade independente
+- [x] **PaymentConfirmationConsumer**: Profile `order-response-payment-consumer`
+- [x] **InsuranceSubscriptionConfirmationConsumer**: Profile `order-response-insurance-consumer`
 - [x] Histórico completo de transições registrado com motivos combinados
 - [x] Clean Architecture implementada
 - [x] Princípios SOLID aplicados
 - [x] Design Patterns documentados e justificados
 - [x] Testes de componentes cobrindo ciclo de vida completo
-- [x] 17 novos testes unitários para Dual Confirmation
+- [x] 19 testes unitários para Rejeição Imediata com Histórico Completo
+- [x] Testes cobrem todos os cenários: ambas aprovadas, ambas rejeitadas, uma aprovada + outra rejeitada
 - [x] Mensageria documentada com exemplos de uso
 - [x] Premissas e limitações claramente documentadas
 

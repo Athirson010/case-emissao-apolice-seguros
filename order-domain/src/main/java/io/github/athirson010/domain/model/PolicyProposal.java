@@ -112,13 +112,35 @@ public class PolicyProposal {
 
     /**
      * Processa resposta do microserviço de pagamento.
-     * Só aprova ou rejeita a apólice quando AMBAS respostas (pagamento + subscrição) forem recebidas.
+     * NOVA LÓGICA:
+     * - Se REJEITADO: muda status para REJECTED imediatamente
+     * - Se APROVADO: só aprova se subscription também foi aprovada, senão aguarda
+     * - Sempre registra no histórico, mesmo se já estiver REJECTED
      *
      * @param approved indica se o pagamento foi aprovado
      * @param rejectionReason motivo da rejeição (se houver)
      * @param now timestamp da resposta
      */
     public void processPaymentResponse(boolean approved, String rejectionReason, Instant now) {
+        // Se já está rejeitado, apenas adiciona histórico da resposta de pagamento
+        if (this.status == PolicyStatus.REJECTED) {
+            if (this.paymentResponseReceived) {
+                throw new IllegalStateException("Payment response already received for this policy");
+            }
+
+            this.paymentResponseReceived = true;
+            this.paymentConfirmed = approved;
+            this.paymentRejectionReason = rejectionReason;
+
+            // Adiciona entrada no histórico informando o resultado do pagamento
+            String historyMessage = approved
+                ? "Pagamento aprovado (após rejeição por subscrição)"
+                : "Pagamento rejeitado: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
+            addHistoryEntry(PolicyStatus.REJECTED, now, historyMessage);
+            return;
+        }
+
+        // Validação normal para status PENDING
         if (this.status != PolicyStatus.PENDING) {
             throw new InvalidTransitionException(
                     String.format("Cannot process payment response for policy in status: %s. Must be PENDING.", this.status)
@@ -133,21 +155,51 @@ public class PolicyProposal {
         this.paymentConfirmed = approved;
         this.paymentRejectionReason = rejectionReason;
 
-        // Só decide o status final quando AMBAS respostas foram recebidas
-        if (hasBothResponses()) {
-            evaluateFinalStatus(now);
+        // REJEIÇÃO IMEDIATA: Se pagamento rejeitado, rejeita a apólice imediatamente
+        if (!approved) {
+            String reason = "Pagamento rejeitado: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
+            reject(reason, now);
+            return;
         }
+
+        // APROVAÇÃO: Só aprova se subscription também foi aprovada
+        if (this.subscriptionResponseReceived && this.subscriptionConfirmed) {
+            approve(now);
+        }
+        // Senão, permanece PENDING aguardando resposta de subscription
     }
 
     /**
      * Processa resposta do microserviço de subscrição/seguro.
-     * Só aprova ou rejeita a apólice quando AMBAS respostas (pagamento + subscrição) forem recebidas.
+     * NOVA LÓGICA:
+     * - Se REJEITADO: muda status para REJECTED imediatamente
+     * - Se APROVADO: só aprova se payment também foi aprovado, senão aguarda
+     * - Sempre registra no histórico, mesmo se já estiver REJECTED
      *
      * @param approved indica se a subscrição foi aprovada
      * @param rejectionReason motivo da rejeição (se houver)
      * @param now timestamp da resposta
      */
     public void processSubscriptionResponse(boolean approved, String rejectionReason, Instant now) {
+        // Se já está rejeitado, apenas adiciona histórico da resposta de subscrição
+        if (this.status == PolicyStatus.REJECTED) {
+            if (this.subscriptionResponseReceived) {
+                throw new IllegalStateException("Subscription response already received for this policy");
+            }
+
+            this.subscriptionResponseReceived = true;
+            this.subscriptionConfirmed = approved;
+            this.subscriptionRejectionReason = rejectionReason;
+
+            // Adiciona entrada no histórico informando o resultado da subscrição
+            String historyMessage = approved
+                ? "Subscrição aprovada (após rejeição por pagamento)"
+                : "Subscrição rejeitada: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
+            addHistoryEntry(PolicyStatus.REJECTED, now, historyMessage);
+            return;
+        }
+
+        // Validação normal para status PENDING
         if (this.status != PolicyStatus.PENDING) {
             throw new InvalidTransitionException(
                     String.format("Cannot process subscription response for policy in status: %s. Must be PENDING.", this.status)
@@ -162,52 +214,20 @@ public class PolicyProposal {
         this.subscriptionConfirmed = approved;
         this.subscriptionRejectionReason = rejectionReason;
 
-        // Só decide o status final quando AMBAS respostas foram recebidas
-        if (hasBothResponses()) {
-            evaluateFinalStatus(now);
-        }
-    }
-
-    /**
-     * Verifica se recebeu resposta de AMBOS microserviços (pagamento E subscrição)
-     */
-    private boolean hasBothResponses() {
-        return this.paymentResponseReceived && this.subscriptionResponseReceived;
-    }
-
-    /**
-     * Avalia o status final da apólice após receber AMBAS respostas.
-     * Regras:
-     * - APPROVED: Somente se AMBAS foram aprovadas
-     * - REJECTED: Se PELO MENOS UMA foi rejeitada
-     */
-    private void evaluateFinalStatus(Instant now) {
-        if (this.paymentConfirmed && this.subscriptionConfirmed) {
-            // Ambas aprovadas -> APPROVED
-            approve(now);
-        } else {
-            // Pelo menos uma rejeitada -> REJECTED
-            String reason = buildRejectionReason();
+        // REJEIÇÃO IMEDIATA: Se subscrição rejeitada, rejeita a apólice imediatamente
+        if (!approved) {
+            String reason = "Subscrição rejeitada: " + (rejectionReason != null ? rejectionReason : "Sem motivo especificado");
             reject(reason, now);
+            return;
         }
+
+        // APROVAÇÃO: Só aprova se payment também foi aprovado
+        if (this.paymentResponseReceived && this.paymentConfirmed) {
+            approve(now);
+        }
+        // Senão, permanece PENDING aguardando resposta de payment
     }
 
-    /**
-     * Constrói a mensagem de rejeição combinando os motivos de pagamento e subscrição
-     */
-    private String buildRejectionReason() {
-        List<String> reasons = new ArrayList<>();
-
-        if (!this.paymentConfirmed && this.paymentRejectionReason != null) {
-            reasons.add("Pagamento rejeitado: " + this.paymentRejectionReason);
-        }
-
-        if (!this.subscriptionConfirmed && this.subscriptionRejectionReason != null) {
-            reasons.add("Subscrição rejeitada: " + this.subscriptionRejectionReason);
-        }
-
-        return reasons.isEmpty() ? "Rejeitado" : String.join("; ", reasons);
-    }
 
     /**
      * @deprecated Use processPaymentResponse() instead

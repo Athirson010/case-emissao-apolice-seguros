@@ -15,9 +15,32 @@
     "business_rules": {
       "state_machine": "A aplicação implementa uma máquina de estados estrita para a solicitação de apólice: RECEIVED → VALIDATED → PENDING → (APPROVED | REJECTED | CANCELLED). Estados finais são imutáveis.",
       "final_state_conditions": {
-        "APPROVED": "Pagamento CONFIRMED e Seguro AUTHORIZED",
-        "REJECTED": "Violação de regras, pagamento REFUSED ou seguro DENIED",
+        "APPROVED": "AMBAS respostas (pagamento E subscrição) APPROVED",
+        "REJECTED": "QUALQUER resposta (pagamento OU subscrição) REJECTED - rejeição imediata",
         "CANCELLED": "Solicitação explícita do cliente antes de estados finais"
+      },
+      "rejection_logic": {
+        "rule": "REJEIÇÃO IMEDIATA COM HISTÓRICO COMPLETO",
+        "description": "Se qualquer resposta (pagamento OU subscrição) vier como REJECTED, o status muda para REJECTED imediatamente. Mesmo após rejeitado, quando a segunda resposta chegar, ela deve ser registrada no histórico.",
+        "scenarios": [
+          {
+            "scenario": "Pagamento rejeitado primeiro",
+            "behavior": "Status muda para REJECTED imediatamente. Quando subscrição chegar (aprovada ou rejeitada), adiciona entrada no histórico mantendo status REJECTED."
+          },
+          {
+            "scenario": "Subscrição rejeitada primeiro",
+            "behavior": "Status muda para REJECTED imediatamente. Quando pagamento chegar (aprovado ou rejeitado), adiciona entrada no histórico mantendo status REJECTED."
+          },
+          {
+            "scenario": "Ambas rejeitadas",
+            "behavior": "Primeira rejeição muda status para REJECTED. Segunda rejeição adiciona nova entrada no histórico. Histórico contém ambos os motivos de rejeição."
+          },
+          {
+            "scenario": "Uma aprovada, outra rejeitada",
+            "behavior": "Rejeitada muda status para REJECTED. Aprovada adiciona entrada no histórico indicando que foi aprovada após rejeição da outra."
+          }
+        ],
+        "history_guarantee": "O histórico SEMPRE contém o resultado de AMBAS as respostas (pagamento E subscrição), independente da ordem de chegada ou dos resultados individuais."
       }
     },
     "mensageria": {
